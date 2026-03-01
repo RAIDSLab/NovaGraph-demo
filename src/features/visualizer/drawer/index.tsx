@@ -32,15 +32,17 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
   const [tabValue, setTabValue] = useState("code");
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const showCodeTab = database!.persistent;
+
   // Default to open when response internal value is changed
   useEffect(() => {
     if (!!activeResponse) {
       setIsExpanded(true);
       setTabValue("output");
     } else {
-      setTabValue("code");
+      setTabValue(showCodeTab ? "code" : "output");
     }
-  }, [activeResponse, activeAlgorithm]);
+  }, [activeResponse, activeAlgorithm, showCodeTab]);
 
   const onQuery = (result: ExecuteQueryResult) => {
     const visualizationResult = convertQueryToVisualizationResult(result);
@@ -101,7 +103,7 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
           onClick={() => setIsExpanded((prev) => !prev)}
         >
           <span className="text-sm text-typography-primary font-medium">
-            Show Code/Output
+            {showCodeTab ? "Show Code/Output" : "Show Output"}
           </span>
           <Button
             variant="ghost"
@@ -120,29 +122,32 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
         {/* Content */}
         {isExpanded && (
           <Tabs
-            value={tabValue}
+            value={showCodeTab ? tabValue : "output"}
             onValueChange={setTabValue}
-            defaultValue="code"
+            defaultValue={showCodeTab ? "code" : "output"}
             className="h-[calc(var(--drawer-height)-48px)] p-4"
           >
-            {/* Content for Code */}
-            <TabsContent value="code" className="flex flex-col">
-              <CodeTabContent
-                code={code}
-                setCode={setCode}
-                // Use CLI wrapper to support UNDIRECTED DSL on undirected graphs
-                runQuery={controller.db.executeCliQuery.bind(controller.db)}
-                onSuccessQuery={onSuccessQuery}
-                onErrorQuery={onErrorQuery}
-                enableOutput={!!activeResponse}
-              />
-            </TabsContent>
+            {/* Content for Code - only shown when persistent (store in database) */}
+            {showCodeTab && (
+              <TabsContent value="code" className="flex flex-col">
+                <CodeTabContent
+                  code={code}
+                  setCode={setCode}
+                  // Use CLI wrapper to support UNDIRECTED DSL on undirected graphs
+                  runQuery={controller.db.executeCliQuery.bind(controller.db)}
+                  onSuccessQuery={onSuccessQuery}
+                  onErrorQuery={onErrorQuery}
+                  enableOutput={!!activeResponse}
+                />
+              </TabsContent>
+            )}
             {/* Content for Output */}
             <TabsContent value="output" className="flex flex-col">
               <OutputTabContent
                 activeAlgorithm={activeAlgorithm}
                 activeResponse={activeResponse}
                 enableOutput={!!activeResponse}
+                showCodeTab={showCodeTab}
               />
             </TabsContent>
           </Tabs>
