@@ -37,7 +37,8 @@ export const jaccardSimilarity =
   });
 
 function Jaccard(props: GraphAlgorithmResult<JaccardSimilarityOutputData>) {
-  const { nodes, similarityMatrix, maxSimilarity } = props.data;
+  const { nodes = [], similarityMatrix = [], maxSimilarity } = props.data;
+  const maxSim = maxSimilarity ?? { node1: "", node2: "", similarity: 0 };
   return (
     <div className="space-y-4">
       <p className="font-medium text-sm text-positive">
@@ -49,19 +50,19 @@ function Jaccard(props: GraphAlgorithmResult<JaccardSimilarityOutputData>) {
         <div className="flex justify-between gap-2">
           <span className="text-typography-secondary">Source:</span>
           <span className="text-typography-primary font-medium">
-            {maxSimilarity.node1}
+            {maxSim.node1}
           </span>
         </div>
         <div className="flex justify-between gap-2">
           <span className="text-typography-secondary">Target:</span>
           <span className="text-typography-primary font-medium">
-            {maxSimilarity.node2}
+            {maxSim.node2}
           </span>
         </div>
         <div className="flex justify-between gap-2 col-span-2">
           <span className="text-typography-secondary">Max Similarity:</span>
           <span className="text-typography-primary font-medium">
-            {maxSimilarity.similarity}
+            {maxSim.similarity}
           </span>
         </div>
       </div>
@@ -102,10 +103,10 @@ function Jaccard(props: GraphAlgorithmResult<JaccardSimilarityOutputData>) {
             We computed pairwise similarities for{" "}
             <span className="font-medium">{nodes.length}</span> nodes. The
             highest-scoring pair is{" "}
-            <span className="font-medium">{maxSimilarity.node1}</span> ↔{" "}
-            <span className="font-medium">{maxSimilarity.node2}</span> with{" "}
+            <span className="font-medium">{maxSim.node1}</span> ↔{" "}
+            <span className="font-medium">{maxSim.node2}</span> with{" "}
             <span className="font-medium">
-              {maxSimilarity.similarity.toFixed(2)}
+              {(maxSim.similarity ?? 0).toFixed(2)}
             </span>
             .
           </li>
@@ -177,7 +178,9 @@ function JaccardSimilarityCellComponent({
   // Body cell: offset indices by -1 into the matrix
   const r = rowIndex - 1;
   const c = columnIndex - 1;
-  const v = similarityMatrix[r][c];
+  const row = similarityMatrix[r];
+  const v = Array.isArray(row) ? row[c] : undefined;
+  const num = typeof v === "number" ? v : 0;
 
   const isDiagonal = r === c;
 
@@ -185,13 +188,13 @@ function JaccardSimilarityCellComponent({
     <div
       style={style}
       className="border border-border flex items-center justify-center text-xs"
-      title={`${nodes[r]} ↔ ${nodes[c]} = ${v.toFixed(2)}`}
+      title={`${nodes[r]} ↔ ${nodes[c]} = ${num.toFixed(2)}`}
     >
       <span
-        title={v.toFixed(2)}
+        title={num.toFixed(2)}
         className={isDiagonal ? "font-semibold text-primary" : ""}
       >
-        {v.toFixed(2)}
+        {num.toFixed(2)}
       </span>
     </div>
   );
