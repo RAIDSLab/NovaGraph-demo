@@ -20,10 +20,13 @@ export default function OutputTabContent({
   activeAlgorithm,
   activeResponse,
   enableOutput,
+  showCodeTab = true,
 }: {
   activeAlgorithm: BaseGraphAlgorithm | null;
   activeResponse: VisualizationResponse | null;
   enableOutput: boolean;
+  /** When false (non-persistent graph), hide Code tab switcher */
+  showCodeTab?: boolean;
 }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
 
@@ -69,7 +72,7 @@ export default function OutputTabContent({
           {outputContent}
         </div>
         <div className="flex flex-wrap-reverse justify-between gap-2">
-          <CodeOutputTabs enableOutput={enableOutput} />
+          <CodeOutputTabs enableOutput={enableOutput} showCodeTab={showCodeTab} />
           {!!activeResponse && (
             <div className="flex items-center gap-2">
               <Button variant="ghost" onClick={() => setIsFullScreen(true)}>
