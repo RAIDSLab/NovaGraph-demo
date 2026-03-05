@@ -106,7 +106,7 @@ export class InMemoryGraphManager {
       sourceTableName,
       targetTableName,
       properties: properties.reduce((acc, prop) => {
-        acc[prop.name] = prop.type;
+        acc[prop.name] = prop.type as unknown as NonPrimaryKeyType; // Edge props are non-PK
         return acc;
       }, {} as Record<string, NonPrimaryKeyType>),
     };
@@ -347,19 +347,17 @@ export class InMemoryGraphManager {
     const nodeColumns = nodeHeader.split(",").map((col) => col.trim());
     const primaryKeyColumn = nodeColumns[0];
 
-    // Infer types from first data row
-    const firstDataRow = nodesLines[1].split(",").map((col) => col.trim());
-    const nodeTypes: Record<string, NonPrimaryKeyType> = {};
-    for (let i = 1; i < nodeColumns.length; i++) {
-      const value = firstDataRow[i];
-      nodeTypes[nodeColumns[i]] = this.inferType(value);
-    }
+    // Infer types by scanning all data rows (column type inference)
+    const nodeDataRows = nodesLines
+      .slice(1)
+      .map((line) => line.split(",").map((col) => col.trim()));
+    const nodeTypes = this.inferColumnTypesFromCSVRows(nodeColumns, nodeDataRows);
 
     // Create node schema
-    const primaryKeyType = this.inferType(firstDataRow[0]) as PrimaryKeyType;
+    const primaryKeyType = nodeTypes[primaryKeyColumn] as PrimaryKeyType;
     const nodeProperties = nodeColumns.slice(1).map((col) => ({
       name: col,
-      type: nodeTypes[col] || "STRING",
+      type: (nodeTypes[col] || "STRING") as NonPrimaryKeyType,
     }));
 
     this.createNodeSchema(nodeTableName, primaryKeyColumn, primaryKeyType, nodeProperties);
@@ -393,20 +391,16 @@ export class InMemoryGraphManager {
       (col) => col !== "source" && col !== "target"
     );
 
-    // Infer edge attribute types
-    const firstEdgeRow = edgesLines[1].split(",").map((col) => col.trim());
-    const edgeTypes: Record<string, NonPrimaryKeyType> = {};
-    for (const col of edgeAttributeColumns) {
-      const colIdx = edgeColumns.indexOf(col);
-      if (colIdx >= 0 && colIdx < firstEdgeRow.length) {
-        edgeTypes[col] = this.inferType(firstEdgeRow[colIdx]);
-      }
-    }
+    // Infer edge attribute types by scanning all rows (column type inference)
+    const edgeDataRows = edgesLines
+      .slice(1)
+      .map((line) => line.split(",").map((col) => col.trim()));
+    const edgeTypes = this.inferColumnTypesFromCSVRows(edgeColumns, edgeDataRows);
 
     // Create edge schema
     const edgeProperties = edgeAttributeColumns.map((col) => ({
       name: col,
-      type: edgeTypes[col] || "STRING",
+      type: (edgeTypes[col] || "STRING") as NonPrimaryKeyType,
     }));
 
     this.createEdgeSchema(
@@ -441,6 +435,7 @@ export class InMemoryGraphManager {
         if (colIdx >= 0 && colIdx < values.length) {
           attributes[col] = {
             value: this.parseValue(values[colIdx], edgeTypes[col] || "STRING"),
+            success: true,
           };
         }
       }
@@ -481,13 +476,16 @@ export class InMemoryGraphManager {
     }
 
     const primaryKeyColumn = nodeKeys[0];
-    const nodeAttributeKeys = nodeKeys.slice(1);
 
-    // Infer types
-    const primaryKeyType = this.inferType(firstNode[primaryKeyColumn]) as PrimaryKeyType;
-    const nodeProperties = nodeAttributeKeys.map((key) => ({
+    // Infer types by scanning all node objects (column type inference)
+    const nodeTypes = this.inferColumnTypesFromJSONObjects(
+      nodeKeys,
+      nodesData as Record<string, unknown>[]
+    );
+    const primaryKeyType = nodeTypes[primaryKeyColumn] as PrimaryKeyType;
+    const nodeProperties = nodeKeys.slice(1).map((key) => ({
       name: key,
-      type: this.inferType(firstNode[key]),
+      type: (nodeTypes[key] || "STRING") as NonPrimaryKeyType,
     }));
 
     this.createNodeSchema(nodeTableName, primaryKeyColumn, primaryKeyType, nodeProperties);
@@ -515,11 +513,16 @@ export class InMemoryGraphManager {
     const edgeAttributeKeys = Object.keys(firstEdge).filter(
       (key) => key !== "from" && key !== "to"
     );
+    const edgeKeys = ["from", "to", ...edgeAttributeKeys];
 
-    // Infer edge types
+    // Infer edge types by scanning all edge objects (column type inference)
+    const edgeTypes = this.inferColumnTypesFromJSONObjects(
+      edgeKeys,
+      edgesData as Record<string, unknown>[]
+    );
     const edgeProperties = edgeAttributeKeys.map((key) => ({
       name: key,
-      type: this.inferType(firstEdge[key]),
+      type: (edgeTypes[key] || "STRING") as NonPrimaryKeyType,
     }));
 
     this.createEdgeSchema(
@@ -549,7 +552,7 @@ export class InMemoryGraphManager {
 
       const attributes: Record<string, InputChangeResult<any>> = {};
       for (const key of edgeAttributeKeys) {
-        attributes[key] = { value: edgeData[key] };
+        attributes[key] = { value: edgeData[key], success: true };
       }
 
       try {
@@ -587,9 +590,99 @@ export class InMemoryGraphManager {
   }
 
   /**
-   * Infer type from a value
+   * Normalize inferred type to a valid schema type.
+   * INT64 -> INT32, UINT64 -> UINT32 (schema does not have 64-bit int types).
    */
-  private inferType(value: any): NonPrimaryKeyType | PrimaryKeyType {
+  private normalizeToSchemaType(
+    t: NonPrimaryKeyType | PrimaryKeyType | string
+  ): NonPrimaryKeyType | PrimaryKeyType {
+    const u = (t || "STRING").toUpperCase();
+    if (u === "INT64" || u.startsWith("INT")) return "INT32";
+    if (u === "UINT64" || u.startsWith("UINT")) return "UINT32";
+    if (u === "FLOAT") return "DOUBLE";
+    if (
+      u === "STRING" ||
+      u === "INT32" ||
+      u === "UINT32" ||
+      u === "DOUBLE" ||
+      u === "BOOL"
+    ) {
+      return u as NonPrimaryKeyType | PrimaryKeyType;
+    }
+    return "STRING";
+  }
+
+  /**
+   * Widen type when merging inferences from multiple rows.
+   * STRING > DOUBLE > INT64 > INT32 > BOOL (internal; normalized before use).
+   */
+  private widenType(a: string, b: string): string {
+    if (a === "STRING" || b === "STRING") return "STRING";
+    if (a === "DOUBLE" || b === "DOUBLE") return "DOUBLE";
+    if (a === "INT64" || b === "INT64") return "INT64";
+    if (a === "INT32" || b === "INT32") return "INT32";
+    if (a === "BOOL" || b === "BOOL") return "BOOL";
+    return "STRING";
+  }
+
+  /**
+   * Infer column types by scanning all CSV rows (not just the first).
+   * Returns inferred types for each column, using the widest type seen.
+   */
+  private inferColumnTypesFromCSVRows(
+    columns: string[],
+    rows: string[][]
+  ): Record<string, NonPrimaryKeyType | PrimaryKeyType> {
+    const raw: Record<string, string> = {};
+    for (const col of columns) {
+      raw[col] = "STRING";
+    }
+    const colIndices = columns.map((c, i) => ({ name: c, idx: i }));
+    for (const row of rows) {
+      for (const { name, idx } of colIndices) {
+        if (idx < row.length) {
+          const value = row[idx]?.trim() ?? "";
+          const inferred = this.inferType(value || null);
+          raw[name] = this.widenType(raw[name], inferred);
+        }
+      }
+    }
+    const result: Record<string, NonPrimaryKeyType | PrimaryKeyType> = {};
+    for (const [k, v] of Object.entries(raw)) {
+      result[k] = this.normalizeToSchemaType(v);
+    }
+    return result;
+  }
+
+  /**
+   * Infer column types by scanning all JSON objects (not just the first).
+   */
+  private inferColumnTypesFromJSONObjects(
+    keys: string[],
+    objects: Record<string, unknown>[]
+  ): Record<string, NonPrimaryKeyType | PrimaryKeyType> {
+    const raw: Record<string, string> = {};
+    for (const k of keys) {
+      raw[k] = "STRING";
+    }
+    for (const obj of objects) {
+      for (const key of keys) {
+        const value = key in obj ? (obj as Record<string, unknown>)[key] : null;
+        const inferred = this.inferType(value);
+        raw[key] = this.widenType(raw[key], inferred);
+      }
+    }
+    const result: Record<string, NonPrimaryKeyType | PrimaryKeyType> = {};
+    for (const [k, v] of Object.entries(raw)) {
+      result[k] = this.normalizeToSchemaType(v);
+    }
+    return result;
+  }
+
+  /**
+   * Infer type from a value (internal representation; may include INT64).
+   */
+  private inferType(value: any): string {
     if (value === null || value === undefined) {
       return "STRING";
     }
