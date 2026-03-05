@@ -71,6 +71,7 @@ export default function InputDialog({
     startLoading("Running Algorithm...");
 
     setTimeout(async () => {
+      const startTime = performance.now();
       try {
         const args = algorithm.inputs.map(
           (input) => inputResults[input.key].value
@@ -79,9 +80,13 @@ export default function InputDialog({
           controller.getAlgorithm(),
           args
         );
+        const elapsed = performance.now() - startTime;
+        console.log(`Time taken for ${algorithm.title}: ${elapsed}ms`);
         setActiveAlgorithm(algorithm);
         setActiveResponse(algorithmResponse);
       } catch (err) {
+        const elapsed = performance.now() - startTime;
+        console.log(`Time taken for ${algorithm.title} (failed): ${elapsed}ms`);
         throw new Error(
           String(err) ?? "An unexpected error occurred. Please try again later."
         );
