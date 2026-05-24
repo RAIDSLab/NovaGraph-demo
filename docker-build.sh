@@ -95,6 +95,24 @@ parse_action() {
     esac
 }
 
+# Cleanup routine before rebuild to avoid stale layers/cache.
+cleanup_before_rebuild() {
+    echo -e "${YELLOW}Cleaning Docker artifacts before rebuild...${NC}"
+
+    # Remove the selected service image if it exists.
+    if docker image inspect "${SERVICE}" >/dev/null 2>&1; then
+        docker rmi -f "${SERVICE}" >/dev/null 2>&1 || true
+    fi
+
+    # Prune stopped containers, dangling images and build cache.
+    docker container prune -f >/dev/null 2>&1 || true
+    docker image prune -f >/dev/null 2>&1 || true
+    docker builder prune -af >/dev/null 2>&1 || true
+
+    echo -e "${GREEN}Docker cleanup finished.${NC}"
+    echo ""
+}
+
 # Main script logic - Always show interactive menu
 show_menu
 echo -n "Enter your choice [1-4] (default: 4): "
@@ -199,6 +217,7 @@ if [ "$SERVICE" == "novagraph-dev" ]; then
                 ${SERVICE}
             ;;
         rebuild)
+            cleanup_before_rebuild
             echo -e "${GREEN}Rebuilding ${SERVICE} image (no cache)...${NC}"
             docker build -t ${SERVICE} --target development \
                 --no-cache \
@@ -260,6 +279,7 @@ else
             docker run -it -p 3000:3000 ${SERVICE}
             ;;
         rebuild)
+            cleanup_before_rebuild
             echo -e "${GREEN}Rebuilding ${SERVICE} image (no cache)...${NC}"
             docker build -t ${SERVICE} --target production \
                 --no-cache \
