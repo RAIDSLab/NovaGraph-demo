@@ -1,4 +1,10 @@
-import { action, makeObservable, observable, runInAction } from "mobx";
+import {
+  action,
+  computed,
+  makeObservable,
+  observable,
+  runInAction,
+} from "mobx";
 import { toast } from "sonner";
 
 import {
@@ -13,9 +19,12 @@ import {
   type VisualizationResponse,
 } from "./types";
 import {
+  DEFAULT_GRAPH_RENDER_SETTINGS,
   GRAVITY,
   NODE_SIZE_SCALE,
   type Gravity,
+  type GraphRenderSettings,
+  type LinkVisibilityDistanceRange,
   type NodeSizeScale,
 } from "./renderer/constant";
 import type { BaseGraphAlgorithm } from "./algorithms/implementations";
@@ -26,6 +35,10 @@ export type InitializedVisualizerStore = VisualizerStore & {
   database: NonNullable<VisualizerStore["database"]>;
 };
 
+/**
+ * UI graph state owner. After any graph topology change, call
+ * `controller.notifyIgraphGraphChanged(snapshot?)` from this store only.
+ */
 export default class VisualizerStore {
   // CONSTRUCTORS
   constructor() {
@@ -34,6 +47,14 @@ export default class VisualizerStore {
       databases: observable,
       gravity: observable,
       nodeSizeScale: observable,
+      largeGraphEdgeThreshold: observable,
+      defaultShowDynamicLabels: observable,
+      linkVisibilityDistanceNear: observable,
+      linkVisibilityDistanceFar: observable,
+      simulationDecay: observable,
+      autoPauseOnSimulationEnd: observable,
+      linkVisibilityDistanceRange: computed,
+      graphRenderSettings: computed,
       databaseDrawerStateMap: observable,
       initialize: action,
       cleanup: action,
@@ -45,6 +66,12 @@ export default class VisualizerStore {
       deleteDatabase: action,
       setGravity: action,
       setNodeSizeScale: action,
+      setLargeGraphEdgeThreshold: action,
+      setDefaultShowDynamicLabels: action,
+      setLinkVisibilityDistanceRange: action,
+      setSimulationDecay: action,
+      setAutoPauseOnSimulationEnd: action,
+      resetGraphRenderSettings: action,
       setCode: action,
       setActiveAlgorithm: action,
       setActiveResponse: action,
@@ -57,6 +84,17 @@ export default class VisualizerStore {
   databases: string[] = []; // List of database options available
   gravity: Gravity = GRAVITY.ZERO_GRAVITY;
   nodeSizeScale: NodeSizeScale = NODE_SIZE_SCALE.MEDIUM;
+  largeGraphEdgeThreshold =
+    DEFAULT_GRAPH_RENDER_SETTINGS.largeGraphEdgeThreshold;
+  defaultShowDynamicLabels =
+    DEFAULT_GRAPH_RENDER_SETTINGS.defaultShowDynamicLabels;
+  linkVisibilityDistanceNear =
+    DEFAULT_GRAPH_RENDER_SETTINGS.linkVisibilityDistanceRange[0];
+  linkVisibilityDistanceFar =
+    DEFAULT_GRAPH_RENDER_SETTINGS.linkVisibilityDistanceRange[1];
+  simulationDecay = DEFAULT_GRAPH_RENDER_SETTINGS.simulationDecay;
+  autoPauseOnSimulationEnd =
+    DEFAULT_GRAPH_RENDER_SETTINGS.autoPauseOnSimulationEnd;
   databaseDrawerStateMap: Record<
     string,
     {
@@ -158,6 +196,10 @@ export default class VisualizerStore {
         this.database = null;
       }
     });
+
+    if (currentDatabaseName) {
+      this.controller.notifyIgraphGraphChanged(graphSnapshotState);
+    }
   };
 
   cleanup = () => {
@@ -183,6 +225,14 @@ export default class VisualizerStore {
         graph,
       };
     });
+
+    this.controller.notifyIgraphGraphChanged({
+      nodes: snapshot.nodes,
+      edges: snapshot.edges,
+      nodeTables: snapshot.nodeTables,
+      edgeTables: snapshot.edgeTables,
+      directed: snapshot.directed ?? this.database.graph.directed,
+    });
   };
 
   addAndSetDatabase = (name: string, snapshot: GraphSnapshotState, persistent: boolean = true) => {
@@ -200,6 +250,14 @@ export default class VisualizerStore {
         graph,
       };
       this.addDatabase(name);
+    });
+
+    this.controller.notifyIgraphGraphChanged({
+      nodes: snapshot?.nodes ?? [],
+      edges: snapshot?.edges ?? [],
+      nodeTables: snapshot?.nodeTables ?? [],
+      edgeTables: snapshot?.edgeTables ?? [],
+      directed: snapshot?.directed ?? true,
     });
   };
 
@@ -231,6 +289,14 @@ export default class VisualizerStore {
     const updatedDatabases = await this.controller.db.listDatabases().catch(() => [] as string[]);
     const currentDatabaseName = await this.controller.db.getCurrentDatabaseName().catch(() => null);
 
+    const graphSnapshotState: GraphSnapshotState = {
+      nodes: rawGraph?.nodes ?? [],
+      edges: rawGraph?.edges ?? [],
+      nodeTables: rawGraph?.nodeTables ?? [],
+      edgeTables: rawGraph?.edgeTables ?? [],
+      directed: rawGraph?.directed ?? true,
+    };
+
     runInAction(() => {
       // Update database list
       this.databases = this.buildDatabases([
@@ -245,6 +311,8 @@ export default class VisualizerStore {
         graph,
       };
     });
+
+    this.controller.notifyIgraphGraphChanged(graphSnapshotState);
   };
 
   refreshDatabaseList = async () => {
@@ -283,6 +351,10 @@ export default class VisualizerStore {
           this.database = null;
         }
       });
+
+      if (currentDatabaseName && rawGraph) {
+        this.controller.notifyIgraphGraphChanged(graphSnapshotState);
+      }
     } catch (error) {
       console.warn("[VisualizerStore] Failed to refresh database list:", error);
     }
@@ -309,6 +381,58 @@ export default class VisualizerStore {
 
   setNodeSizeScale = (nodeSizeScale: NodeSizeScale) => {
     this.nodeSizeScale = nodeSizeScale;
+  };
+
+  get linkVisibilityDistanceRange(): LinkVisibilityDistanceRange {
+    return [this.linkVisibilityDistanceNear, this.linkVisibilityDistanceFar];
+  }
+
+  get graphRenderSettings(): GraphRenderSettings {
+    return {
+      largeGraphEdgeThreshold: this.largeGraphEdgeThreshold,
+      defaultShowDynamicLabels: this.defaultShowDynamicLabels,
+      linkVisibilityDistanceRange: this.linkVisibilityDistanceRange,
+      simulationDecay: this.simulationDecay,
+      autoPauseOnSimulationEnd: this.autoPauseOnSimulationEnd,
+    };
+  }
+
+  setLargeGraphEdgeThreshold = (value: number) => {
+    this.largeGraphEdgeThreshold = Math.max(0, Math.floor(value));
+  };
+
+  setDefaultShowDynamicLabels = (value: boolean) => {
+    this.defaultShowDynamicLabels = value;
+  };
+
+  setLinkVisibilityDistanceRange = (near: number, far: number) => {
+    const n = Math.max(0, Math.floor(near));
+    const f = Math.max(0, Math.floor(far));
+    if (n >= f) {
+      this.linkVisibilityDistanceNear = n;
+      this.linkVisibilityDistanceFar = n + 1;
+      return;
+    }
+    this.linkVisibilityDistanceNear = n;
+    this.linkVisibilityDistanceFar = f;
+  };
+
+  setSimulationDecay = (value: number) => {
+    this.simulationDecay = Math.min(200_000, Math.max(100, Math.floor(value)));
+  };
+
+  setAutoPauseOnSimulationEnd = (value: boolean) => {
+    this.autoPauseOnSimulationEnd = value;
+  };
+
+  resetGraphRenderSettings = () => {
+    const d = DEFAULT_GRAPH_RENDER_SETTINGS;
+    this.largeGraphEdgeThreshold = d.largeGraphEdgeThreshold;
+    this.defaultShowDynamicLabels = d.defaultShowDynamicLabels;
+    this.linkVisibilityDistanceNear = d.linkVisibilityDistanceRange[0];
+    this.linkVisibilityDistanceFar = d.linkVisibilityDistanceRange[1];
+    this.simulationDecay = d.simulationDecay;
+    this.autoPauseOnSimulationEnd = d.autoPauseOnSimulationEnd;
   };
 
   setCode = (code: string) => {
