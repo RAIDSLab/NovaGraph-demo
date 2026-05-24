@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 export type SCCOutputData<T = string> = {
   algorithm: string;
@@ -41,13 +42,16 @@ function _parseResult(
 export async function igraphStronglyConnectedComponents(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult
-): Promise<SCCResult> {
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.strongly_connected_components()
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+): Promise<AlgorithmTimedResult<SCCResult>> {
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.strongly_connected_components(),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

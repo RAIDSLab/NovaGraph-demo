@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 export type VerticesAreAdjacentOutputData<T = string> = {
   algorithm: string;
@@ -47,7 +48,7 @@ export async function igraphVerticesAreAdjacent(
   graphData: KuzuToIgraphParseResult,
   kuzuSourceID: string,
   kuzuTargetID: string
-): Promise<VerticesAreAdjacentResult> {
+): Promise<AlgorithmTimedResult<VerticesAreAdjacentResult>> {
   const sourceIgraphId = graphData.KuzuToIgraphMap.get(kuzuSourceID);
   const targetIgraphId = graphData.KuzuToIgraphMap.get(kuzuTargetID);
 
@@ -57,12 +58,15 @@ export async function igraphVerticesAreAdjacent(
     );
   }
 
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.vertices_are_adjacent(sourceIgraphId, targetIgraphId)
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.vertices_are_adjacent(sourceIgraphId, targetIgraphId),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

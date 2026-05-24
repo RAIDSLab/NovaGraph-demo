@@ -7,7 +7,8 @@ import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import { _parseCentralities, type CentralityItem } from "./util";
 
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 import type { GraphNode } from "~/features/visualizer/types";
 
 export type HarmonicCentralityOutputData<T = string> = {
@@ -42,13 +43,16 @@ function _parseResult(
 export async function igraphHarmonicCentrality(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult
-): Promise<HarmonicCentralityResult> {
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.harmonic_centrality()
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+): Promise<AlgorithmTimedResult<HarmonicCentralityResult>> {
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.harmonic_centrality(),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 // Infered from src/wasm/algorithms
 export type DijkstraAToBOutputData<T = string> = {
@@ -56,7 +57,7 @@ export async function igraphDijkstraAToB(
   graphData: KuzuToIgraphParseResult,
   kuzuSourceID: string,
   kuzuTargetID: string
-): Promise<DijkstraAToBResult> {
+): Promise<AlgorithmTimedResult<DijkstraAToBResult>> {
   const startIgraphId = graphData.KuzuToIgraphMap.get(kuzuSourceID);
   const endIgraphId = graphData.KuzuToIgraphMap.get(kuzuTargetID);
 
@@ -66,12 +67,15 @@ export async function igraphDijkstraAToB(
     );
   }
 
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.dijkstra_source_to_target(startIgraphId, endIgraphId)
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.dijkstra_source_to_target(startIgraphId, endIgraphId),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

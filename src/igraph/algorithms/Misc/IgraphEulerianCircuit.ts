@@ -6,10 +6,13 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 export type EulerianCircuitOutputData<T = string> = {
   algorithm: string;
+  hasCircuit?: boolean;
+  message?: string;
   path: {
     from: T;
     to: T;
@@ -49,13 +52,16 @@ function _parseResult(
 export async function igraphEulerianCircuit(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult
-): Promise<EulerianCircuitResult> {
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.eulerian_circuit()
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+): Promise<AlgorithmTimedResult<EulerianCircuitResult>> {
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.eulerian_circuit(),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

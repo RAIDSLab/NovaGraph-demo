@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 export type KCoreOutputData<T = string> = {
   algorithm: string;
@@ -44,11 +45,15 @@ export async function igraphKCore(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult,
   k: number
-): Promise<KCoreResult> {
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) => m.k_core(k));
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+): Promise<AlgorithmTimedResult<KCoreResult>> {
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) => m.k_core(k),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

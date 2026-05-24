@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 // Infered from src/wasm/algorithms/path-finding.cpp lines 63-132
 export type DijkstraAToAllOutputData<T = string> = {
@@ -51,19 +52,22 @@ export async function igraphDijkstraAToAll(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult,
   kuzuSourceID: string
-): Promise<DijkstraAToAllResult> {
+): Promise<AlgorithmTimedResult<DijkstraAToAllResult>> {
   const startIgraphId = graphData.KuzuToIgraphMap.get(kuzuSourceID);
 
   if (startIgraphId == null) {
     throw new Error(`Source node "${kuzuSourceID}" not found in graph data`);
   }
 
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.dijkstra_source_to_all(startIgraphId)
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.dijkstra_source_to_all(startIgraphId),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

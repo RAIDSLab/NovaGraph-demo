@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 // TODO: more extensive testing
 // Inferred from src/wasm/algorithms/path-finding.cpp (yen_source_to_target)
@@ -62,7 +63,7 @@ export async function igraphYen(
   kuzuSourceID: string,
   kuzuTargetID: string,
   k: number
-): Promise<YenResult> {
+): Promise<AlgorithmTimedResult<YenResult>> {
   const startIgraphId = graphData.KuzuToIgraphMap.get(kuzuSourceID);
   const endIgraphId = graphData.KuzuToIgraphMap.get(kuzuTargetID);
 
@@ -72,12 +73,15 @@ export async function igraphYen(
     );
   }
 
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.yen_source_to_target(startIgraphId, endIgraphId, k)
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.yen_source_to_target(startIgraphId, endIgraphId, k),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

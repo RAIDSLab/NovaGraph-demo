@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 // Inferred from src/wasm/algorithms/path-finding.cpp (randomWalk)
 export type RandomWalkOutputData<T = string> = {
@@ -64,19 +65,22 @@ export async function igraphRandomWalk(
   graphData: KuzuToIgraphParseResult,
   kuzuSourceID: string,
   steps: number
-): Promise<RandomWalkResult> {
+): Promise<AlgorithmTimedResult<RandomWalkResult>> {
   const startIgraphId = graphData.KuzuToIgraphMap.get(kuzuSourceID);
 
   if (startIgraphId == null) {
     throw new Error(`Source node "${kuzuSourceID}" not found in graph data`);
   }
 
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.random_walk(startIgraphId, steps)
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.random_walk(startIgraphId, steps),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

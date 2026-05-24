@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 export type FastGreedyOutputData<T = string> = {
   algorithm: string;
@@ -43,11 +44,15 @@ function _parseResult(
 export async function igraphFastGreedy(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult
-): Promise<FastGreedyResult> {
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) => m.fast_greedy());
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+): Promise<AlgorithmTimedResult<FastGreedyResult>> {
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) => m.fast_greedy(),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

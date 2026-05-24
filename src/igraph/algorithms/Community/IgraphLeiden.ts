@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 export type LeidenOutputData<T = string> = {
   modularity: number;
@@ -44,13 +45,16 @@ export async function igraphLeiden(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult,
   resolution: number
-): Promise<LeidenResult> {
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.leiden(resolution)
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+): Promise<AlgorithmTimedResult<LeidenResult>> {
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.leiden(resolution),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

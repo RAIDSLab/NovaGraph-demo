@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 // Infered from src/wasm/algorithms/path-finding.cpp
 export type MinimalSpanningTreeOutputData<T = string> = {
@@ -58,13 +59,16 @@ function _parseResult(
 export async function igraphMST(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult
-): Promise<MSTResult> {
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.min_spanning_tree()
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+): Promise<AlgorithmTimedResult<MSTResult>> {
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.min_spanning_tree(),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

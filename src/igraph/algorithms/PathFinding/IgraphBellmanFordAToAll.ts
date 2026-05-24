@@ -5,7 +5,8 @@ import type {
 } from "../../types";
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 import type { GraphNode } from "~/features/visualizer/types";
 
 // Todo: more extensive testing
@@ -52,19 +53,22 @@ export async function igraphBellmanFordAToAll(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult,
   kuzuSourceID: string
-): Promise<BellmanFordAToAllResult> {
+): Promise<AlgorithmTimedResult<BellmanFordAToAllResult>> {
   const startIgraphId = graphData.KuzuToIgraphMap.get(kuzuSourceID);
 
   if (startIgraphId == null) {
     throw new Error(`Source node "${kuzuSourceID}" not found in graph data`);
   }
 
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.bellman_ford_source_to_all(startIgraphId)
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.bellman_ford_source_to_all(startIgraphId),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

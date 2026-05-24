@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 export type JaccardSimilarityOutputData<T = string> = {
   algorithm: string;
@@ -67,17 +68,20 @@ export async function igraphJaccardSimilarity(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult,
   kuzuNodeIds: string[]
-): Promise<JaccardSimilarityResult> {
+): Promise<AlgorithmTimedResult<JaccardSimilarityResult>> {
   const igraphIds = mapKuzuIdsToIgraphIds(
     kuzuNodeIds,
     graphData.KuzuToIgraphMap
   );
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.jaccard_similarity(igraphIds)
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.jaccard_similarity(igraphIds),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

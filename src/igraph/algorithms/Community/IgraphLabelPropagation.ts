@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 export type LabelPropagationOutputData<T = string> = {
   algorithm: string;
@@ -41,13 +42,16 @@ function _parseResult(
 export async function igraphLabelPropagation(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult
-): Promise<LabelPropagationResult> {
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.label_propagation()
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+): Promise<AlgorithmTimedResult<LabelPropagationResult>> {
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.label_propagation(),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

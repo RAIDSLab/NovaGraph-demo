@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 export type TopologicalSortOutputData<T = string> = {
   algorithm: string;
@@ -39,13 +40,16 @@ function _parseResult(
 export async function igraphTopologicalSort(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult
-): Promise<TopologicalSortResult> {
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.topological_sort()
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+): Promise<AlgorithmTimedResult<TopologicalSortResult>> {
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.topological_sort(),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

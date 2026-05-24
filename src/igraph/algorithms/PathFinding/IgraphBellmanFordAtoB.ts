@@ -5,7 +5,8 @@ import type {
 } from "../../types";
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 import type { GraphNode } from "~/features/visualizer/types";
 
 // Inferred from src/wasm/algorithms/path-finding.cpp (bf_source_to_target)
@@ -56,7 +57,7 @@ export async function igraphBellmanFordAToB(
   graphData: KuzuToIgraphParseResult,
   kuzuSourceID: string,
   kuzuTargetID: string
-): Promise<BellmanFordAToBResult> {
+): Promise<AlgorithmTimedResult<BellmanFordAToBResult>> {
   const startIgraphId = graphData.KuzuToIgraphMap.get(kuzuSourceID);
   const endIgraphId = graphData.KuzuToIgraphMap.get(kuzuTargetID);
 
@@ -66,12 +67,15 @@ export async function igraphBellmanFordAToB(
     );
   }
 
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.bellman_ford_source_to_target(startIgraphId, endIgraphId)
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.bellman_ford_source_to_target(startIgraphId, endIgraphId),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

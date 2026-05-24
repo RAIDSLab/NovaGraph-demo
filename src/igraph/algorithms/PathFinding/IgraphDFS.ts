@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 // Inferred from src/wasm/algorithms/path-finding.cpp (dfs)
 export type DFSOutputData<T = string> = {
@@ -50,17 +51,21 @@ export async function igraphDFS(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult,
   kuzuSourceID: string
-): Promise<DFSResult> {
+): Promise<AlgorithmTimedResult<DFSResult>> {
   const igraphID = graphData.KuzuToIgraphMap.get(kuzuSourceID);
 
   if (igraphID == null) {
     throw new Error(`Source node "${kuzuSourceID}" not found in graph data`);
   }
 
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) => m.dfs(igraphID));
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) => m.dfs(igraphID),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

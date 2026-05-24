@@ -5,7 +5,8 @@ import type {
 } from "../../types";
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 import type { GraphNode } from "~/features/visualizer/types";
 
 export type BFSOutputData<T = string> = {
@@ -45,7 +46,7 @@ export async function igraphBFS(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult,
   kuzuSourceID: string
-): Promise<BFSResult> {
+): Promise<AlgorithmTimedResult<BFSResult>> {
   let igraphID: number | undefined =
     graphData.KuzuToIgraphMap.get(kuzuSourceID);
 
@@ -53,10 +54,14 @@ export async function igraphBFS(
     throw new Error(`Source node "${kuzuSourceID}" not found in graph data`);
   }
 
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) => m.bfs(igraphID));
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) => m.bfs(igraphID),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

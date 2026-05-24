@@ -7,7 +7,8 @@ import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import { _parseCentralities, type CentralityItem } from "./util";
 
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 import type { GraphNode } from "~/features/visualizer/types";
 
 export type PageRankOutputData<T = string> = {
@@ -45,13 +46,16 @@ export async function igraphPageRank(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult,
   damping: number
-): Promise<PageRankResult> {
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.pagerank(damping)
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+): Promise<AlgorithmTimedResult<PageRankResult>> {
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.pagerank(damping),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 export type TriangleCountOutputData<T = string> = {
   algorithm: string;
@@ -49,11 +50,15 @@ function _parseResult(
 export async function igraphTriangles(
   igraphMod: GraphModule,
   graphData: KuzuToIgraphParseResult
-): Promise<TriangleCountResult> {
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) => m.triangle_count());
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+): Promise<AlgorithmTimedResult<TriangleCountResult>> {
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) => m.triangle_count(),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }

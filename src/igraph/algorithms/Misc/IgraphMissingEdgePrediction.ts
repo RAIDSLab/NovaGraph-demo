@@ -6,7 +6,8 @@ import type {
 import { createMapIdBack, mapColorMapIds } from "../../utils/mapIdBack";
 
 import type { GraphNode } from "~/features/visualizer/types";
-import { _runIgraphAlgo } from "~/igraph/utils/runIgraphAlgo";
+import { runTimedIgraphAlgorithm } from "~/igraph/utils/runIgraphAlgo";
+import type { AlgorithmTimedResult } from "~/igraph/utils/runIgraphAlgo";
 
 export type MissingEdgePredictionOutputData<T = string> = {
   algorithm: string;
@@ -54,13 +55,16 @@ export async function igraphMissingEdgePrediction(
   graphData: KuzuToIgraphParseResult,
   sampleSize: number,
   numBins: number
-): Promise<MissingEdgePredictionResult> {
-  const wasmResult = await _runIgraphAlgo(igraphMod, (m) =>
-    m.missing_edge_prediction(sampleSize, numBins)
-  );
-  return _parseResult(
-    graphData.IgraphToKuzuMap,
-    graphData.nodesMap,
-    wasmResult
+): Promise<AlgorithmTimedResult<MissingEdgePredictionResult>> {
+  return runTimedIgraphAlgorithm(
+    igraphMod,
+    (m) =>
+    m.missing_edge_prediction(sampleSize, numBins),
+    (wasmResult) =>
+      _parseResult(
+        graphData.IgraphToKuzuMap,
+        graphData.nodesMap,
+        wasmResult
+      )
   );
 }
