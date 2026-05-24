@@ -186,18 +186,41 @@ val diameter(void)
 
 val eulerian_path(void)
 {
-    igraph_bool_t exists;
-    igraph_is_eulerian(&globalGraph, &exists, NULL);
-    if (!exists)
-        throw std::runtime_error("This graph does not have an Eulerian path.");
-
-    IGraphVectorInt vPath;
-    igraph_eulerian_path(&globalGraph, NULL, vPath.vec());
-
     val result = val::object();
     val colorMap = val::object();
     val data = val::object();
     data.set("algorithm", "Eulerian Path");
+    data.set("hasPath", false);
+
+    igraph_bool_t hasPath = false;
+    igraph_bool_t hasCycle = false;
+    igraph_is_eulerian(&globalGraph, &hasPath, &hasCycle);
+    if (!hasPath)
+    {
+        data.set("message", "This graph does not have an Eulerian path.");
+        data.set("start", "N/A");
+        data.set("end", "N/A");
+        data.set("path", val::array());
+        result.set("colorMap", colorMap);
+        result.set("mode", MODE_COLOR_SHADE_DEFAULT);
+        result.set("data", data);
+        return result;
+    }
+
+    IGraphVectorInt vPath;
+    igraph_eulerian_path(&globalGraph, NULL, vPath.vec());
+    data.set("hasPath", true);
+    if (vPath.size() == 0)
+    {
+        data.set("message", "Graph has no edges; Eulerian path is empty.");
+        data.set("start", "N/A");
+        data.set("end", "N/A");
+        data.set("path", val::array());
+        result.set("colorMap", colorMap);
+        result.set("mode", MODE_COLOR_SHADE_DEFAULT);
+        result.set("data", data);
+        return result;
+    }
 
     val path = val::array();
     for (int i = 0; i < vPath.size() - 1; ++i)
@@ -226,27 +249,39 @@ val eulerian_path(void)
 
 val eulerian_circuit(void)
 {
-    igraph_bool_t pathExists, circuitExists;
-    igraph_is_eulerian(&globalGraph, &pathExists, &circuitExists);
-    if (!circuitExists)
-    {
-        if (pathExists)
-        {
-            throw std::runtime_error("This graph is does not have an Eulerian circuit BUT it has an Eulerian path.");
-        }
-        else
-        {
-            throw std::runtime_error("This graph does not have an Eulerian circuit.");
-        }
-    }
-
-    IGraphVectorInt vPath;
-    igraph_eulerian_cycle(&globalGraph, NULL, vPath.vec());
-
     val result = val::object();
     val colorMap = val::object();
     val data = val::object();
     data.set("algorithm", "Eulerian Circuit");
+    data.set("hasCircuit", false);
+
+    igraph_bool_t hasPath = false;
+    igraph_bool_t hasCircuit = false;
+    igraph_is_eulerian(&globalGraph, &hasPath, &hasCircuit);
+    if (!hasCircuit)
+    {
+        if (hasPath)
+        {
+            data.set("message", "This graph has an Eulerian path but does not have an Eulerian circuit.");
+        }
+        else
+        {
+            data.set("message", "This graph does not have an Eulerian circuit.");
+        }
+        data.set("path", val::array());
+        result.set("colorMap", colorMap);
+        result.set("mode", MODE_COLOR_SHADE_DEFAULT);
+        result.set("data", data);
+        return result;
+    }
+
+    IGraphVectorInt vPath;
+    igraph_eulerian_cycle(&globalGraph, NULL, vPath.vec());
+    data.set("hasCircuit", true);
+    if (vPath.size() == 0)
+    {
+        data.set("message", "Graph has no edges; Eulerian circuit is empty.");
+    }
 
     val path = val::array();
     for (int i = 0; i < vPath.size() - 1; ++i)
@@ -304,14 +339,14 @@ val missing_edge_prediction(int numSamples, int numBins)
 {
     igraph_hrg_t hrg;
     IGraphVectorInt predicted_edges;
-    IGraphVector probabilties;
+    IGraphVector probabilities;
 
     // fit the hrg model to the global graph
     igraph_hrg_init(&hrg, 0);
     igraph_hrg_fit(&globalGraph, &hrg, false, 0);
 
     // predict missing edges
-    igraph_hrg_predict(&globalGraph, predicted_edges.vec(), probabilties.vec(), &hrg, false, numSamples, numBins);
+    igraph_hrg_predict(&globalGraph, predicted_edges.vec(), probabilities.vec(), &hrg, false, numSamples, numBins);
 
     val result = val::object();
     val colorMap = val::object();
@@ -321,16 +356,24 @@ val missing_edge_prediction(int numSamples, int numBins)
     val edges = val::array();
     val edgesData = val::array();
     int edgeIndex = 0;
-    for (int i = 0; i < predicted_edges.size(); ++i)
+    int outputIndex = 0;
+    for (int i = 0; i + 1 < predicted_edges.size(); i += 2)
     {
+        if (edgeIndex >= probabilities.size())
+            break;
+
         int src = predicted_edges.at(i);
         int tar = predicted_edges.at(i + 1);
         std::string linkId = std::to_string(src) + '-' + std::to_string(tar);
-        igraph_real_t prob = probabilties.at(edgeIndex);
+        igraph_real_t prob = probabilities.at(edgeIndex);
 
-        // Only record edges with probability > 0.5
+        // Only record edges with probability >= 0.5.
+        // Do not break: probabilities are not guaranteed to be globally sorted.
         if (prob < 0.5)
-            break;
+        {
+            edgeIndex++;
+            continue;
+        }
 
         colorMap.set(src, 0.5);
         colorMap.set(tar, 0.5);
@@ -340,7 +383,7 @@ val missing_edge_prediction(int numSamples, int numBins)
         val e = val::object();
         e.set("source", src);
         e.set("target", tar);
-        edges.set(edgeIndex, e);
+        edges.set(outputIndex, e);
 
         // add to data object
         std::stringstream stream;
@@ -350,7 +393,8 @@ val missing_edge_prediction(int numSamples, int numBins)
 
         stream << std::fixed << std::setprecision(3) << prob * 100;
         link.set("probability", stream.str() + "%");
-        edgesData.set(edgeIndex++, link);
+        edgesData.set(outputIndex++, link);
+        edgeIndex++;
     }
 
     result.set("colorMap", colorMap);
