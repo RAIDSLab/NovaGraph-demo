@@ -1,4 +1,5 @@
 import { cloneElement, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import type { GraphNode } from "../types";
 import InputComponent, { createEmptyInputResults } from "../inputs";
@@ -23,6 +24,46 @@ import {
 } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
 import { useLoading } from "~/components/ui/loading";
+import {
+  ALGORITHM_RENDER_DONE_EVENT,
+  ALGORITHM_RUN_STATE_EVENT,
+  type AlgorithmRenderDoneDetail,
+} from "~/features/visualizer/renderer/events";
+import {
+  computePrimaryPreparedInvokeMs,
+  emptyBenchmarkTiming,
+  logBenchmarkTiming,
+} from "~/igraph/benchmark-timing";
+
+const RENDER_DONE_TIMEOUT_MS = 15_000;
+
+const waitForRenderDone = (runId: string): Promise<void> =>
+  new Promise((resolve) => {
+    let resolved = false;
+
+    const cleanup = () => {
+      window.removeEventListener(ALGORITHM_RENDER_DONE_EVENT, onRenderDone);
+      window.clearTimeout(timeout);
+    };
+
+    const finish = () => {
+      if (resolved) return;
+      resolved = true;
+      cleanup();
+      resolve();
+    };
+
+    const onRenderDone = (event: Event) => {
+      const detail =
+        (event as CustomEvent<AlgorithmRenderDoneDetail>).detail ?? null;
+      if (detail?.runId === runId) {
+        finish();
+      }
+    };
+
+    const timeout = window.setTimeout(finish, RENDER_DONE_TIMEOUT_MS);
+    window.addEventListener(ALGORITHM_RENDER_DONE_EVENT, onRenderDone);
+  });
 
 export default function InputDialog({
   controller,
@@ -68,27 +109,81 @@ export default function InputDialog({
 
     setOpen(false);
     setInputResults(createEmptyInputResults(algorithm.inputs));
-    startLoading("Running Algorithm...");
+    startLoading("Running Algorithm");
+    const runId = `algo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const renderDonePromise = waitForRenderDone(runId);
 
-    setTimeout(async () => {
+    window.dispatchEvent(
+      new CustomEvent(ALGORITHM_RUN_STATE_EVENT, {
+        detail: { running: true, runId },
+      })
+    );
+
+    void (async () => {
+      const t5Start = performance.now();
       try {
         const args = algorithm.inputs.map(
           (input) => inputResults[input.key].value
+        );
+        console.log(
+          `[Algorithm Input] ${algorithm.title}: ${JSON.stringify(args)}`
         );
         const algorithmResponse = await algorithm.wasmFunction(
           controller.getAlgorithm(),
           args
         );
+        startLoading("Applying Visualization");
         setActiveAlgorithm(algorithm);
         setActiveResponse(algorithmResponse);
+        await renderDonePromise;
+
+        const igraphTiming =
+          controller.getAlgorithm()?.getLastBenchmarkTiming?.() ??
+          emptyBenchmarkTiming();
+        const timing = {
+          ...igraphTiming,
+          T5_ui_e2e_ms: performance.now() - t5Start,
+        };
+        timing.primary_prepared_invoke_ms = computePrimaryPreparedInvokeMs(timing);
+
+        const outputPreview = JSON.stringify(
+          "data" in algorithmResponse ? algorithmResponse.data : algorithmResponse
+        );
+        console.log(
+          `[Algorithm Output] ${algorithm.title}: ${outputPreview.slice(0, 2000)}`
+        );
+        logBenchmarkTiming({
+          operation: algorithm.title,
+          timing,
+          input: args,
+          output:
+            "data" in algorithmResponse ? algorithmResponse.data : algorithmResponse,
+        });
       } catch (err) {
-        throw new Error(
+        const igraphTiming =
+          controller.getAlgorithm()?.getLastBenchmarkTiming?.() ??
+          emptyBenchmarkTiming();
+        const timing = {
+          ...igraphTiming,
+          T5_ui_e2e_ms: performance.now() - t5Start,
+        };
+        logBenchmarkTiming({
+          operation: algorithm.title,
+          timing,
+          input: algorithm.inputs.map((input) => inputResults[input.key].value),
+        });
+        toast.error(
           String(err) ?? "An unexpected error occurred. Please try again later."
         );
       } finally {
         stopLoading();
+        window.dispatchEvent(
+          new CustomEvent(ALGORITHM_RUN_STATE_EVENT, {
+            detail: { running: false, runId },
+          })
+        );
       }
-    }, 0);
+    })();
   };
 
   const menuButton = (

@@ -8,21 +8,118 @@ import type {
 import type { InputChangeResult } from "./features/visualizer/inputs";
 import { IgraphController } from "./igraph/IgraphController";
 import { InMemoryGraphManager } from "./lib/InMemoryGraphManager";
+import type { GraphSnapshotState } from "./features/visualizer/types";
+
+/** Database facade surface exposed as `controller.db`. Methods are bound to MainController. */
+export type MainControllerDb = {
+  getGraphDirection: () => boolean;
+  createNodeSchema: (
+    tableName: string,
+    primaryKey: string,
+    primaryKeyType: PrimaryKeyType,
+    properties?: {
+      name: string;
+      type: NonPrimaryKeyType;
+      isPrimary?: boolean;
+    }[],
+    relInfo?: { from: string; to: string } | null
+  ) => Promise<unknown>;
+  createSchema: (
+    type: "node" | "rel" | "NODE" | "REL",
+    tableName: string,
+    primaryKey?: string,
+    properties?: Record<string, CompositeType>,
+    relInfo?: { from: string; to: string } | null
+  ) => Promise<unknown>;
+  createNode: (
+    label: string,
+    properties: Record<
+      string,
+      { value: any; success?: boolean; message?: string }
+    >
+  ) => Promise<unknown>;
+  updateNode: (
+    node: GraphNode,
+    values: Record<string, InputChangeResult<any>>
+  ) => Promise<unknown>;
+  deleteNode: (node: GraphNode) => Promise<unknown>;
+  executeQuery: (query: string) => Promise<unknown>;
+  executeCliQuery: (query: string) => Promise<unknown>;
+  getColumnTypes: (query: string) => Promise<unknown>;
+  snapshotGraphState: () => Promise<GraphSnapshotState & { directed: boolean }>;
+  createEdgeSchema: (
+    tableName: string,
+    tablePairs: Array<[string | number, string | number]>,
+    properties: (
+      | { name: string; type: NonPrimaryKeyType }
+      | { name: string; type: PrimaryKeyType }
+    )[],
+    relationshipType?: "MANY_ONE" | "ONE_MANY" | "MANY_MANY" | "ONE_ONE"
+  ) => Promise<unknown>;
+  createEdge: (
+    node1: GraphNode,
+    node2: GraphNode,
+    edgeTable: EdgeSchema,
+    attributes?: Record<string, InputChangeResult<any>>
+  ) => Promise<unknown>;
+  deleteEdge: (
+    node1: GraphNode,
+    node2: GraphNode,
+    isDirected: boolean,
+    edgeTableName: string
+  ) => Promise<unknown>;
+  updateEdge: (
+    node1: GraphNode,
+    node2: GraphNode,
+    edgeTableName: string,
+    values: Record<string, InputChangeResult<any>>
+  ) => Promise<unknown>;
+  writeVirtualFile: (path: string, content: string) => Promise<unknown>;
+  deleteVirtualFile: (path: string) => Promise<unknown>;
+  createDatabase: (
+    dbName: string,
+    metadata?: { isDirected?: boolean; persistent?: boolean }
+  ) => Promise<unknown>;
+  deleteDatabase: (dbName: string) => Promise<unknown>;
+  listDatabases: () => Promise<string[]>;
+  connectToDatabase: (dbName: string) => Promise<unknown>;
+  getCurrentDatabaseName: () => Promise<string | null>;
+  saveDatabase: () => Promise<unknown>;
+  loadDatabase: () => Promise<unknown>;
+  importFromCSV: (
+    databaseName: string,
+    nodesText: string,
+    edgesText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected?: boolean,
+    persistent?: boolean
+  ) => Promise<unknown>;
+  importFromJSON: (
+    databaseName: string,
+    nodesText: string,
+    edgesText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected?: boolean,
+    persistent?: boolean
+  ) => Promise<unknown>;
+};
 
 class MainController {
-  // Private sector
   private _IgraphController: undefined | IgraphController;
   private _inMemoryGraphManager: InMemoryGraphManager | null = null;
-  private _currentDatabasePersistent: boolean = true; // Track if current DB is persistent
+  private _currentDatabasePersistent: boolean = true;
+
+  /** Bound in constructor — all methods use MainController as `this`. */
+  db!: MainControllerDb;
+
   private async _initKuzu() {
-    // 从环境变量读取配置，如果没有设置则使用默认值
-    // 支持两种方式：服务器端 (process.env) 和客户端 (import.meta.env)
     const getEnv = (key: string): string | undefined => {
       if (typeof process !== "undefined" && process.env) {
         return process.env[key];
       }
       if (typeof import.meta !== "undefined" && import.meta.env) {
-        // Vite 环境变量需要 VITE_ 前缀，但我们也支持不带前缀的
         return (
           (import.meta.env as any)[key] ||
           (import.meta.env as any)[`VITE_${key}`]
@@ -35,7 +132,6 @@ class MainController {
     const kuzuMode = (getEnv("KUZU_MODE") || "async").toLowerCase();
     const dbPath = getEnv("KUZU_DB_PATH");
 
-    // 验证类型和模式
     const validTypes = ["inmemory", "persistent"];
     const validModes = ["sync", "async"];
 
@@ -65,17 +161,48 @@ class MainController {
 
     return kuzuController.initialize(finalType, finalMode, options);
   }
+
   private async _initIgraph() {
     return await this._IgraphController?.initIgraph();
   }
 
-  // Public sector
-  constructor() {
-    this._IgraphController = new IgraphController(
-      // Bind to ensure 'this' inside db methods points to db namespace
-      this.db.snapshotGraphState.bind(this.db),
-      this.db.getGraphDirection.bind(this.db)
+  private _createIgraphController(): IgraphController {
+    return new IgraphController(
+      this._snapshotGraphState.bind(this),
+      this._getGraphDirection.bind(this)
     );
+  }
+
+  constructor() {
+    this.db = {
+      getGraphDirection: this._getGraphDirection.bind(this),
+      createNodeSchema: this._createNodeSchema.bind(this),
+      createSchema: this._createSchema.bind(this),
+      createNode: this._createNode.bind(this),
+      updateNode: this._updateNode.bind(this),
+      deleteNode: this._deleteNode.bind(this),
+      executeQuery: this._executeQuery.bind(this),
+      executeCliQuery: this._executeCliQuery.bind(this),
+      getColumnTypes: this._getColumnTypes.bind(this),
+      snapshotGraphState: this._snapshotGraphState.bind(this),
+      createEdgeSchema: this._createEdgeSchema.bind(this),
+      createEdge: this._createEdge.bind(this),
+      deleteEdge: this._deleteEdge.bind(this),
+      updateEdge: this._updateEdge.bind(this),
+      writeVirtualFile: this._writeVirtualFile.bind(this),
+      deleteVirtualFile: this._deleteVirtualFile.bind(this),
+      createDatabase: this._createDatabase.bind(this),
+      deleteDatabase: this._deleteDatabase.bind(this),
+      listDatabases: this._listDatabases.bind(this),
+      connectToDatabase: this._connectToDatabase.bind(this),
+      getCurrentDatabaseName: this._getCurrentDatabaseName.bind(this),
+      saveDatabase: this._saveDatabase.bind(this),
+      loadDatabase: this._loadDatabase.bind(this),
+      importFromCSV: this._importFromCSV.bind(this),
+      importFromJSON: this._importFromJSON.bind(this),
+    };
+
+    this._IgraphController = this._createIgraphController();
   }
 
   async getGraphModule() {
@@ -94,436 +221,394 @@ class MainController {
     return this._IgraphController;
   }
 
-  // Database operations namespace
-  db = {
-    getGraphDirection() {
-      if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-        return this._inMemoryGraphManager.getGraphDirection();
-      }
-      const metadata = kuzuController.getCurrentDatabaseMetadata?.();
-      return metadata?.isDirected ?? true;
-    },
-
-    async createNodeSchema(
-      tableName: string,
-      primaryKey: string,
-      primaryKeyType: PrimaryKeyType,
-      properties: {
-        name: string;
-        type: NonPrimaryKeyType;
-        isPrimary?: boolean;
-      }[] = [],
-      relInfo: { from: string; to: string } | null = null
-    ) {
-      if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-        this._inMemoryGraphManager.createNodeSchema(
-          tableName,
-          primaryKey,
-          primaryKeyType,
-          properties
-        );
-        return Promise.resolve(undefined);
-      }
-      return Promise.resolve(
-        kuzuController.createNodeSchema(
-          tableName,
-          primaryKey,
-          primaryKeyType,
-          properties,
-          relInfo
-        )
+  /**
+   * Invalidate igraph worker graph cache and optionally schedule a background sync.
+   *
+   * **Contract:** Call only from `VisualizerStore` after the UI graph state changes
+   * (`initialize`, `switchDatabase`, `setGraphState`, `addAndSetDatabase`,
+   * `refreshDatabaseList`). Do not call from `db.*` or import handlers — pass
+   * `snapshot` from the store to avoid an extra Kuzu `snapshotGraphState()` copy.
+   */
+  notifyIgraphGraphChanged(snapshot?: GraphSnapshotState) {
+    const igraph = this._IgraphController;
+    if (!igraph) return;
+    igraph.invalidateGraphSync();
+    if (snapshot) {
+      igraph.scheduleBackgroundGraphSync(
+        IgraphController.toWorkerSnapshot(snapshot)
       );
-    },
+    } else {
+      igraph.scheduleBackgroundGraphSync();
+    }
+  }
 
-    async createSchema(
-      type: "node" | "rel" | "NODE" | "REL",
-      tableName: string,
-      primaryKey?: string,
-      properties: Record<string, CompositeType> = {},
-      relInfo: { from: string; to: string } | null = null
-    ) {
-      return Promise.resolve(
-        kuzuController.createSchema(
-          type,
-          tableName,
-          primaryKey,
-          properties,
-          relInfo
-        )
+  private _getGraphDirection(): boolean {
+    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
+      return this._inMemoryGraphManager.getGraphDirection();
+    }
+    const metadata = kuzuController.getCurrentDatabaseMetadata?.();
+    return metadata?.isDirected ?? true;
+  }
+
+  private async _createNodeSchema(
+    tableName: string,
+    primaryKey: string,
+    primaryKeyType: PrimaryKeyType,
+    properties: {
+      name: string;
+      type: NonPrimaryKeyType;
+      isPrimary?: boolean;
+    }[] = [],
+    relInfo: { from: string; to: string } | null = null
+  ) {
+    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
+      this._inMemoryGraphManager.createNodeSchema(
+        tableName,
+        primaryKey,
+        primaryKeyType,
+        properties
       );
-    },
+      return undefined;
+    }
+    return kuzuController.createNodeSchema(
+      tableName,
+      primaryKey,
+      primaryKeyType,
+      properties,
+      relInfo
+    );
+  }
 
-    async createNode(
-      label: string,
-      properties: Record<
-        string,
-        { value: any; success?: boolean; message?: string }
-      >
-    ) {
-      if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-        const snapshot = this._inMemoryGraphManager.createNode(label, properties);
-        return Promise.resolve(snapshot);
-      }
-      return Promise.resolve(kuzuController.createNode(label, properties));
-    },
+  private async _createSchema(
+    type: "node" | "rel" | "NODE" | "REL",
+    tableName: string,
+    primaryKey?: string,
+    properties: Record<string, CompositeType> = {},
+    relInfo: { from: string; to: string } | null = null
+  ) {
+    return kuzuController.createSchema(
+      type,
+      tableName,
+      primaryKey,
+      properties,
+      relInfo
+    );
+  }
 
-    async updateNode(
-      node: GraphNode,
-      values: Record<string, InputChangeResult<any>>
-    ) {
-      if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-        const snapshot = this._inMemoryGraphManager.updateNode(node, values);
-        return Promise.resolve(snapshot);
-      }
-      return Promise.resolve(kuzuController.updateNode(node, values));
-    },
+  private async _createNode(
+    label: string,
+    properties: Record<
+      string,
+      { value: any; success?: boolean; message?: string }
+    >
+  ) {
+    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
+      return this._inMemoryGraphManager.createNode(label, properties);
+    }
+    return kuzuController.createNode(label, properties);
+  }
 
-    async deleteNode(node: GraphNode) {
-      if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-        const snapshot = this._inMemoryGraphManager.deleteNode(node);
-        return Promise.resolve(snapshot);
-      }
-      return Promise.resolve(kuzuController.deleteNode(node));
-    },
+  private async _updateNode(
+    node: GraphNode,
+    values: Record<string, InputChangeResult<any>>
+  ) {
+    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
+      return this._inMemoryGraphManager.updateNode(node, values);
+    }
+    return kuzuController.updateNode(node, values);
+  }
 
-    // Execute query method (adds directed flag based on current DB metadata)
-    async executeQuery(query: string) {
-      if (!this._currentDatabasePersistent) {
-        throw new Error(
-          "Query execution is not supported for in-memory (non-persistent) graphs. " +
+  private async _deleteNode(node: GraphNode) {
+    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
+      return this._inMemoryGraphManager.deleteNode(node);
+    }
+    return kuzuController.deleteNode(node);
+  }
+
+  private async _executeQuery(query: string) {
+    if (!this._currentDatabasePersistent) {
+      throw new Error(
+        "Query execution is not supported for in-memory (non-persistent) graphs. " +
           "Please use a persistent graph to execute queries."
-        );
-      }
-      const result = await kuzuController.executeQuery(query);
-      return {
-        ...result,
-        directed: this.getGraphDirection(),
-      };
-    },
+      );
+    }
+    const result = await kuzuController.executeQuery(query);
+    return {
+      ...result,
+      directed: this._getGraphDirection(),
+    };
+  }
 
-    /** CLI-facing executeQuery; actual undirected handling lives in KuzuController. */
-    async executeCliQuery(query: string) {
-      if (!this._currentDatabasePersistent) {
-        throw new Error(
-          "Query execution is not supported for in-memory (non-persistent) graphs. " +
+  private async _executeCliQuery(query: string) {
+    if (!this._currentDatabasePersistent) {
+      throw new Error(
+        "Query execution is not supported for in-memory (non-persistent) graphs. " +
           "Please use a persistent graph to execute queries."
-        );
-      }
-      const result = await kuzuController.executeCliQuery(query);
-      return {
-        ...result,
-        directed: this.getGraphDirection(),
-      };
-    },
+      );
+    }
+    const result = await kuzuController.executeCliQuery(query);
+    return {
+      ...result,
+      directed: this._getGraphDirection(),
+    };
+  }
 
-    // Get column types from query
-    async getColumnTypes(query: string) {
-      if (!this._currentDatabasePersistent) {
-        throw new Error(
-          "Column type inference is not supported for in-memory (non-persistent) graphs. " +
+  private async _getColumnTypes(query: string) {
+    if (!this._currentDatabasePersistent) {
+      throw new Error(
+        "Column type inference is not supported for in-memory (non-persistent) graphs. " +
           "Please use a persistent graph to infer column types."
-        );
-      }
-      return kuzuController.getColumnTypes(query);
-    },
+      );
+    }
+    return kuzuController.getColumnTypes(query);
+  }
 
-    // snapshotGraphState
-    async snapshotGraphState() {
-      if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-        return Promise.resolve(this._inMemoryGraphManager.snapshotGraphState());
-      }
-      const snapshot = await Promise.resolve(kuzuController.snapshotGraphState());
+  private async _snapshotGraphState() {
+    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
+      const snapshot = this._inMemoryGraphManager.snapshotGraphState();
       return {
         ...snapshot,
-        directed: this.getGraphDirection(),
+        directed: this._getGraphDirection(),
       };
-    },
+    }
+    const snapshot = await kuzuController.snapshotGraphState();
+    return {
+      ...snapshot,
+      directed: this._getGraphDirection(),
+    };
+  }
 
-    async createEdgeSchema(
-      tableName: string,
-      tablePairs: Array<[string | number, string | number]>,
-      properties: (
-        | { name: string; type: NonPrimaryKeyType }
-        | { name: string; type: PrimaryKeyType }
-      )[],
-      relationshipType?: "MANY_ONE" | "ONE_MANY" | "MANY_MANY" | "ONE_ONE"
-    ) {
-      if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-        this._inMemoryGraphManager.createEdgeSchema(
-          tableName,
-          tablePairs,
-          properties,
-          relationshipType
-        );
-        return Promise.resolve(undefined);
-      }
-      return Promise.resolve(
-        kuzuController.createEdgeSchema(
-          tableName,
-          tablePairs,
-          properties,
-          this.getGraphDirection(),
-          relationshipType
-        )
+  private async _createEdgeSchema(
+    tableName: string,
+    tablePairs: Array<[string | number, string | number]>,
+    properties: (
+      | { name: string; type: NonPrimaryKeyType }
+      | { name: string; type: PrimaryKeyType }
+    )[],
+    relationshipType?: "MANY_ONE" | "ONE_MANY" | "MANY_MANY" | "ONE_ONE"
+  ) {
+    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
+      this._inMemoryGraphManager.createEdgeSchema(
+        tableName,
+        tablePairs,
+        properties,
+        relationshipType
       );
-    },
+      return undefined;
+    }
+    return kuzuController.createEdgeSchema(
+      tableName,
+      tablePairs,
+      properties,
+      this._getGraphDirection(),
+      relationshipType
+    );
+  }
 
-    async createEdge(
-      node1: GraphNode,
-      node2: GraphNode,
-      edgeTable: EdgeSchema,
-      attributes?: Record<string, InputChangeResult<any>>
-    ) {
-      if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-        const snapshot = this._inMemoryGraphManager.createEdge(
-          node1,
-          node2,
-          edgeTable,
-          attributes
-        );
-        return Promise.resolve(snapshot);
-      }
-      return Promise.resolve(
-        kuzuController.createEdge(
-          node1,
-          node2,
-          edgeTable,
-          this.getGraphDirection(),
-          attributes
-        )
+  private async _createEdge(
+    node1: GraphNode,
+    node2: GraphNode,
+    edgeTable: EdgeSchema,
+    attributes?: Record<string, InputChangeResult<any>>
+  ) {
+    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
+      return this._inMemoryGraphManager.createEdge(
+        node1,
+        node2,
+        edgeTable,
+        attributes
       );
-    },
+    }
+    return kuzuController.createEdge(
+      node1,
+      node2,
+      edgeTable,
+      this._getGraphDirection(),
+      attributes
+    );
+  }
 
-    async deleteEdge(
-      node1: GraphNode,
-      node2: GraphNode,
-      isDirected: boolean,
-      edgeTableName: string
-    ) {
-      if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-        const snapshot = this._inMemoryGraphManager.deleteEdge(
-          node1,
-          node2,
-          edgeTableName
-        );
-        return Promise.resolve(snapshot);
-      }
-      return Promise.resolve(
-        kuzuController.deleteEdge(node1, node2, edgeTableName, isDirected)
+  private async _deleteEdge(
+    node1: GraphNode,
+    node2: GraphNode,
+    isDirected: boolean,
+    edgeTableName: string
+  ) {
+    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
+      return this._inMemoryGraphManager.deleteEdge(
+        node1,
+        node2,
+        edgeTableName
       );
-    },
+    }
+    return kuzuController.deleteEdge(node1, node2, edgeTableName, isDirected);
+  }
 
-    async updateEdge(
-      node1: GraphNode,
-      node2: GraphNode,
-      edgeTableName: string,
-      values: Record<string, InputChangeResult<any>>
-    ) {
-      if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-        const snapshot = this._inMemoryGraphManager.updateEdge(
-          node1,
-          node2,
-          edgeTableName,
-          values
-        );
-        return Promise.resolve(snapshot);
-      }
-      return Promise.resolve(
-        kuzuController.updateEdge(
-          node1,
-          node2,
-          edgeTableName,
-          values,
-          this.getGraphDirection()
-        )
+  private async _updateEdge(
+    node1: GraphNode,
+    node2: GraphNode,
+    edgeTableName: string,
+    values: Record<string, InputChangeResult<any>>
+  ) {
+    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
+      return this._inMemoryGraphManager.updateEdge(
+        node1,
+        node2,
+        edgeTableName,
+        values
       );
-    },
+    }
+    return kuzuController.updateEdge(
+      node1,
+      node2,
+      edgeTableName,
+      values,
+      this._getGraphDirection()
+    );
+  }
 
-    async writeVirtualFile(path: string, content: string) {
-      return kuzuController.writeVirtualFile(path, content);
-    },
+  private async _writeVirtualFile(path: string, content: string) {
+    return kuzuController.writeVirtualFile(path, content);
+  }
 
-    async deleteVirtualFile(path: string) {
-      return kuzuController.deleteVirtualFile(path);
-    },
+  private async _deleteVirtualFile(path: string) {
+    return kuzuController.deleteVirtualFile(path);
+  }
 
-    async createDatabase(
-      dbName: string,
-      metadata?: { isDirected?: boolean; persistent?: boolean }
-    ) {
-      const persistent = metadata?.persistent ?? true;
-      this._currentDatabasePersistent = persistent;
+  private async _createDatabase(
+    dbName: string,
+    metadata?: { isDirected?: boolean; persistent?: boolean }
+  ) {
+    const persistent = metadata?.persistent ?? true;
+    this._currentDatabasePersistent = persistent;
 
-      if (!persistent) {
-        // Create in-memory graph manager
-        this._inMemoryGraphManager = new InMemoryGraphManager(
-          metadata?.isDirected ?? true
-        );
-        // Update IgraphController to use in-memory data source
-        if (this._IgraphController) {
-          this._IgraphController = new IgraphController(
-            this.db.snapshotGraphState.bind(this.db),
-            this.db.getGraphDirection.bind(this.db)
-          );
-          await this._IgraphController.initIgraph();
-        }
-        return Promise.resolve(undefined);
+    if (!persistent) {
+      this._inMemoryGraphManager = new InMemoryGraphManager(
+        metadata?.isDirected ?? true
+      );
+      if (this._IgraphController) {
+        await this._IgraphController.dispose();
+        this._IgraphController = this._createIgraphController();
+        await this._IgraphController.initIgraph();
       }
+      return undefined;
+    }
 
-      return Promise.resolve(kuzuController.createDatabase(dbName, metadata));
-    },
+    return kuzuController.createDatabase(dbName, metadata);
+  }
 
-    async deleteDatabase(dbName: string) {
-      return Promise.resolve(kuzuController.deleteDatabase(dbName));
-    },
+  private async _deleteDatabase(dbName: string) {
+    return kuzuController.deleteDatabase(dbName);
+  }
 
-    async listDatabases() {
-      return Promise.resolve(kuzuController.listDatabases());
-    },
+  private async _listDatabases() {
+    return kuzuController.listDatabases();
+  }
 
-    async connectToDatabase(dbName: string) {
-      // For now, assume connecting to a persistent database
-      // In the future, we might need to track which databases are persistent
-      this._currentDatabasePersistent = true;
-      this._inMemoryGraphManager = null;
-      return Promise.resolve(kuzuController.connectToDatabase(dbName));
-    },
+  private async _connectToDatabase(dbName: string) {
+    this._currentDatabasePersistent = true;
+    this._inMemoryGraphManager = null;
+    return kuzuController.connectToDatabase(dbName);
+  }
 
-    async getCurrentDatabaseName() {
-      return Promise.resolve(kuzuController.getCurrentDatabaseName());
-    },
+  private async _getCurrentDatabaseName() {
+    return kuzuController.getCurrentDatabaseName();
+  }
 
-    async saveDatabase() {
-      return Promise.resolve(kuzuController.saveDatabase());
-    },
+  private async _saveDatabase() {
+    return kuzuController.saveDatabase();
+  }
 
-    async loadDatabase() {
-      return Promise.resolve(kuzuController.loadDatabase());
-    },
+  private async _loadDatabase() {
+    return kuzuController.loadDatabase();
+  }
 
-    /**
-     * Import graph data from CSV files
-     * @param databaseName - Name of the database
-     * @param nodesText - Content of the nodes CSV file
-     * @param edgesText - Content of the edges CSV file
-     * @param nodeTableName - Name for the node table
-     * @param edgeTableName - Name for the edge table
-     * @param isDirected - Whether the graph is directed
-     * @param persistent - Whether to store in kuzu (true) or keep in memory (false)
-     * @returns Import result with success status and graph state
-     */
-    async importFromCSV(
-      databaseName: string,
-      nodesText: string,
-      edgesText: string,
-      nodeTableName: string,
-      edgeTableName: string,
-      isDirected: boolean = true,
-      persistent: boolean = true
-    ) {
-      if (!persistent && this._inMemoryGraphManager) {
-        const snapshot = await this._inMemoryGraphManager.importFromCSV(
-          nodesText,
-          edgesText,
-          nodeTableName,
-          edgeTableName,
-          isDirected
-        );
-        return {
-          databaseName,
-          ...snapshot,
-        };
-      }
-
-      const result = await kuzuController.importFromCSV(
-        databaseName,
+  private async _importFromCSV(
+    databaseName: string,
+    nodesText: string,
+    edgesText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected: boolean = true,
+    persistent: boolean = true
+  ) {
+    if (!persistent && this._inMemoryGraphManager) {
+      const snapshot = await this._inMemoryGraphManager.importFromCSV(
         nodesText,
         edgesText,
         nodeTableName,
         edgeTableName,
         isDirected
       );
-
       return {
-        ...result,
-        directed: isDirected,
-      };
-    },
-
-    /**
-     * Import graph data from JSON files
-     * @param databaseName - Name of the database
-     * @param nodesText - Content of the nodes JSON file
-     * @param edgesText - Content of the edges JSON file
-     * @param nodeTableName - Name for the node table
-     * @param edgeTableName - Name for the edge table
-     * @param isDirected - Whether the graph is directed
-     * @param persistent - Whether to store in kuzu (true) or keep in memory (false)
-     * @returns Import result with success status and graph state
-     */
-    async importFromJSON(
-      databaseName: string,
-      nodesText: string,
-      edgesText: string,
-      nodeTableName: string,
-      edgeTableName: string,
-      isDirected: boolean = true,
-      persistent: boolean = true
-    ) {
-      if (!persistent && this._inMemoryGraphManager) {
-        const snapshot = await this._inMemoryGraphManager.importFromJSON(
-          nodesText,
-          edgesText,
-          nodeTableName,
-          edgeTableName,
-          isDirected
-        );
-        return {
-          databaseName,
-          ...snapshot,
-        };
-      }
-
-      const result = await kuzuController.importFromJSON(
         databaseName,
+        ...snapshot,
+      };
+    }
+
+    const result = await kuzuController.importFromCSV(
+      databaseName,
+      nodesText,
+      edgesText,
+      nodeTableName,
+      edgeTableName,
+      isDirected
+    );
+
+    return {
+      ...result,
+      directed: isDirected,
+    };
+  }
+
+  private async _importFromJSON(
+    databaseName: string,
+    nodesText: string,
+    edgesText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected: boolean = true,
+    persistent: boolean = true
+  ) {
+    if (!persistent && this._inMemoryGraphManager) {
+      const snapshot = await this._inMemoryGraphManager.importFromJSON(
         nodesText,
         edgesText,
         nodeTableName,
         edgeTableName,
         isDirected
       );
-
       return {
-        ...result,
-        directed: isDirected,
+        databaseName,
+        ...snapshot,
       };
-    },
-  };
+    }
+
+    const result = await kuzuController.importFromJSON(
+      databaseName,
+      nodesText,
+      edgesText,
+      nodeTableName,
+      edgeTableName,
+      isDirected
+    );
+
+    return {
+      ...result,
+      directed: isDirected,
+    };
+  }
 
   _internal = {
-    /**
-     *
-     * @param tableName table name
-     * @returns
-     * {
-          primaryKey: primaryKey,
-          primaryKeyType: primaryKeyType,
-          properties: Record<Property Name, Property Type>
-        }
-      * @example await store.controller._internal.getSingleSchemaProperties(`Person`); 
-     */
     async getSingleSchemaProperties(tableName: string) {
-      return Promise.resolve(
-        kuzuController.getSingleSchemaProperties(tableName)
-      );
+      return kuzuController.getSingleSchemaProperties(tableName);
     },
 
     async getAllSchemaProperties() {
-      return Promise.resolve(kuzuController.getAllSchemaProperties());
+      return kuzuController.getAllSchemaProperties();
     },
   };
 }
 
-// Singleton instance
 const controller = new MainController();
 export { controller };

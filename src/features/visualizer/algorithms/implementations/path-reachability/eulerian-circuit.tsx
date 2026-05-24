@@ -22,7 +22,8 @@ export const eulerianCircuit = createGraphAlgorithm<EulerianCircuitOutputData>({
 function EulerianCircuit(
   props: GraphAlgorithmResult<EulerianCircuitOutputData>
 ) {
-  const { path } = props.data;
+  const { path, hasCircuit, message } = props.data;
+  const hasUsableCircuit = (hasCircuit ?? true) && path.length > 0;
 
   const rowHeight = useDynamicRowHeight({
     defaultRowHeight: 48,
@@ -36,14 +37,22 @@ function EulerianCircuit(
 
   return (
     <div className="space-y-4">
-      <p className="font-medium text-sm text-positive">
-        ✓ Eulerian Circuit completed successfully
-      </p>
+      {hasUsableCircuit ? (
+        <p className="font-medium text-sm text-positive">
+          ✓ Eulerian Circuit completed successfully
+        </p>
+      ) : (
+        <p className="font-medium text-sm text-warning">
+          {message ?? "No Eulerian circuit exists for the current graph."}
+        </p>
+      )}
 
       {/* Statistics */}
       <p className="text-sm text-typography-secondary">
         Total Weight:{" "}
-        <b className="text-typography-primary">{cumulative[path.length - 1]}</b>
+        <b className="text-typography-primary">
+          {hasUsableCircuit ? cumulative[path.length - 1] : 0}
+        </b>
       </p>
 
       {/* Step By Step */}

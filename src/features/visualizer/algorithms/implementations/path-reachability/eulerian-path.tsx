@@ -19,7 +19,8 @@ export const eulerianPath = createGraphAlgorithm<EulerianPathOutputData>({
 });
 
 function EulerianPath(props: GraphAlgorithmResult<EulerianPathOutputData>) {
-  const { start, end, path } = props.data;
+  const { start, end, path, hasPath, message } = props.data;
+  const hasUsablePath = (hasPath ?? true) && path.length > 0;
 
   const rowHeight = useDynamicRowHeight({
     defaultRowHeight: 48,
@@ -33,24 +34,34 @@ function EulerianPath(props: GraphAlgorithmResult<EulerianPathOutputData>) {
 
   return (
     <div className="space-y-4">
-      <p className="font-medium text-sm text-positive">
-        ✓ Eulerian Path completed successfully
-      </p>
+      {hasUsablePath ? (
+        <p className="font-medium text-sm text-positive">
+          ✓ Eulerian Path completed successfully
+        </p>
+      ) : (
+        <p className="font-medium text-sm text-warning">
+          {message ?? "No Eulerian path exists for the current graph."}
+        </p>
+      )}
 
       {/* Statistics */}
       <div className="grid grid-cols-2 gap-2 text-sm">
         <div className="flex justify-between gap-2">
           <span className="text-typography-secondary">First Vertex:</span>
-          <span className="text-typography-primary font-medium">{start}</span>
+          <span className="text-typography-primary font-medium">
+            {hasUsablePath ? start : "N/A"}
+          </span>
         </div>
         <div className="flex justify-between gap-2">
           <span className="text-typography-secondary">Last Vertex:</span>
-          <span className="text-typography-primary font-medium">{end}</span>
+          <span className="text-typography-primary font-medium">
+            {hasUsablePath ? end : "N/A"}
+          </span>
         </div>
         <div className="flex justify-between gap-2 col-span-2">
           <span className="text-typography-secondary">Total Weight:</span>
           <span className="text-typography-primary font-medium">
-            {cumulative[path.length - 1]}
+            {hasUsablePath ? cumulative[path.length - 1] : 0}
           </span>
         </div>
       </div>
