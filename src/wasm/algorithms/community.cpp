@@ -364,6 +364,5 @@ val strongly_connected_components(void)
 
 val weakly_connected_components(void)
 {
-    throw_error_if_undirected("Weakly Connected Components");
     return connected_components(IGRAPH_WEAK);
 }
