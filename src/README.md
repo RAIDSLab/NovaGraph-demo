@@ -53,6 +53,12 @@ Notes:
 - `db.snapshotGraphState()` feeds `IgraphController` to rebuild WASM graph state as needed.
 - Direction flag comes from `db.getGraphDirection()`; algorithms that require directed graphs enforce it in `IgraphController`.
 
+### igraph background sync contract
+
+- **`notifyIgraphGraphChanged(snapshot?)`** must be called only from **`VisualizerStore`** after the UI graph changes (`initialize`, `switchDatabase`, `setGraphState`, `addAndSetDatabase`, `refreshDatabaseList`).
+- **Do not** call it from `controller.db.*`, import handlers, or `createDatabase` — import flow: `createDatabase` → import data → `store.addAndSetDatabase(snapshot)` → store notifies once (pass `snapshot` to avoid an extra Kuzu copy).
+- `controller.db` methods are bound to the `MainController` instance in the constructor (`MainControllerDb`); private state (`_currentDatabasePersistent`, `_inMemoryGraphManager`) lives on the controller only.
+
 ### Pointers to more detail
 - Database facade and storage modes: see `kuzu/README.md`
 - Graph algorithms, data preparation, and WASM: see `igraph/README.md`

@@ -52,7 +52,7 @@ COPY src/igraph/ ./igraph/
 COPY src/wasm/ ./wasm/
 
 # Install typescript
-RUN npm install -g typescript
+RUN npm install -g typescript@5.6.3
 
 # Link against cached libs
 RUN em++ wasm/*.cpp wasm/algorithms/*.cpp wasm/generators/*.cpp -o graph.js \

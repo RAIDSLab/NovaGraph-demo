@@ -35,4 +35,9 @@ src/
 
 See each layer’s local doc for a deeper breakdown.
 
+### Visualizer performance docs
+
+- [ALGO_NON_BLOCKING_UI_UPGRADE.md](./ALGO_NON_BLOCKING_UI_UPGRADE.md) — Phase 1/2/2.1 upgrade guide (Worker, rendering, before/after, validation)
+- [ALGO_RENDERING_OPTIMIZATION_ROADMAP.md](./ALGO_RENDERING_OPTIMIZATION_ROADMAP.md) — Optimization backlog and implementation notes
+
 
