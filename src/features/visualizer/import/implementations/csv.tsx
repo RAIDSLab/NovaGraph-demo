@@ -22,6 +22,10 @@ import {
   createSwitchInput,
   createTextInput,
 } from "~/features/visualizer/inputs";
+import {
+  emptyBenchmarkTiming,
+  logBenchmarkTiming,
+} from "~/igraph/benchmark-timing";
 
 const validateNodes = async (file: File | undefined) => {
   if (!file)
@@ -213,7 +217,22 @@ export const ImportCSV: ImportOption = {
         isPersistent
       );
       const endTime = performance.now();
-      console.log(`Time taken for importFromCSV: ${endTime - startTime}ms`);
+      const t0Ms = endTime - startTime;
+      console.log(`Time taken for importFromCSV: ${t0Ms}ms`);
+      const timing = emptyBenchmarkTiming();
+      timing.T0_import_ms = t0Ms;
+      timing.primary_prepared_invoke_ms = null;
+      logBenchmarkTiming({
+        operation: "importFromCSV",
+        caseId: "BC00",
+        timing,
+        input: {
+          nodes_file: nodesFile.name,
+          edges_file: edgesFile.name,
+          directed,
+          persistent: isPersistent,
+        },
+      });
 
       if (isPersistent) {
         await controller.db.saveDatabase();

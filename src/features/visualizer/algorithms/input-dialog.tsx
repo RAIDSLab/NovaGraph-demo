@@ -1,4 +1,5 @@
 import { cloneElement, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import type { GraphNode } from "../types";
 import InputComponent, { createEmptyInputResults } from "../inputs";
@@ -23,6 +24,20 @@ import {
 } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
 import { useLoading } from "~/components/ui/loading";
+import {
+  computePrimaryPreparedInvokeMs,
+  emptyBenchmarkTiming,
+  logBenchmarkTiming,
+} from "~/igraph/benchmark-timing";
+
+const waitForUiPaint = async () => {
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+};
 
 export default function InputDialog({
   controller,
@@ -70,30 +85,61 @@ export default function InputDialog({
     setInputResults(createEmptyInputResults(algorithm.inputs));
     startLoading("Running Algorithm...");
 
-    setTimeout(async () => {
-      const startTime = performance.now();
+    void (async () => {
+      const t5Start = performance.now();
       try {
-        const args = algorithm.inputs.map(
-          (input) => inputResults[input.key].value
-        );
+        const args = algorithm.inputs.map((input) => inputResults[input.key].value);
+        console.log(`[Algorithm Input] ${algorithm.title}: ${JSON.stringify(args)}`);
+
+        const t4Start = performance.now();
         const algorithmResponse = await algorithm.wasmFunction(
           controller.getAlgorithm(),
           args
         );
-        const elapsed = performance.now() - startTime;
-        console.log(`Time taken for ${algorithm.title}: ${elapsed}ms`);
+        const t4Ms = performance.now() - t4Start;
+        console.log(`Time taken for ${algorithm.title}: ${t4Ms}ms`);
+
         setActiveAlgorithm(algorithm);
         setActiveResponse(algorithmResponse);
+        await waitForUiPaint();
+
+        const timing = {
+          ...emptyBenchmarkTiming(),
+          T4_system_invoke_ms: t4Ms,
+          T5_ui_e2e_ms: performance.now() - t5Start,
+        };
+        timing.primary_prepared_invoke_ms = computePrimaryPreparedInvokeMs(timing);
+
+        const outputPreview = JSON.stringify(
+          "data" in algorithmResponse ? algorithmResponse.data : algorithmResponse
+        );
+        console.log(
+          `[Algorithm Output] ${algorithm.title}: ${outputPreview.slice(0, 2000)}`
+        );
+        logBenchmarkTiming({
+          operation: algorithm.title,
+          timing,
+          input: args,
+          output:
+            "data" in algorithmResponse ? algorithmResponse.data : algorithmResponse,
+        });
       } catch (err) {
-        const elapsed = performance.now() - startTime;
-        console.log(`Time taken for ${algorithm.title} (failed): ${elapsed}ms`);
-        throw new Error(
+        const timing = {
+          ...emptyBenchmarkTiming(),
+          T5_ui_e2e_ms: performance.now() - t5Start,
+        };
+        logBenchmarkTiming({
+          operation: algorithm.title,
+          timing,
+          input: algorithm.inputs.map((input) => inputResults[input.key].value),
+        });
+        toast.error(
           String(err) ?? "An unexpected error occurred. Please try again later."
         );
       } finally {
         stopLoading();
       }
-    }, 0);
+    })();
   };
 
   const menuButton = (

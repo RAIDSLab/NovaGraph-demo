@@ -120,6 +120,10 @@ import {
   type JaccardSimilarityResult,
 } from "./algorithms/Misc/IgraphJaccardSimilarity";
 import { parseKuzuToIgraphInput } from "./utils/parseKuzuToIgraphInput";
+import {
+  emptyGraphPrepTiming,
+  type GraphPrepTiming,
+} from "./benchmark-timing";
 
 import type {
   EdgeSchema,
@@ -141,6 +145,8 @@ export class IgraphController {
     edgeTables: EdgeSchema[];
   }>;
   private _getDirection: () => boolean;
+  private _lastGraphPrepTiming: GraphPrepTiming | null = null;
+  private _pendingWasmInitMs: number | null = null;
 
   constructor(
     getKuzuData: () => Promise<{
@@ -159,7 +165,9 @@ export class IgraphController {
   async initIgraph(): Promise<GraphModule> {
     if (!this._wasmGraphModule) {
       try {
+        const initStart = performance.now();
         this._wasmGraphModule = await createModule();
+        this._pendingWasmInitMs = performance.now() - initStart;
       } catch (err) {
         throw new Error("Failed to load WASM module: " + err);
       }
@@ -171,19 +179,26 @@ export class IgraphController {
     return this._wasmGraphModule;
   }
 
+  getLastGraphPrepTiming(): GraphPrepTiming | null {
+    return this._lastGraphPrepTiming;
+  }
+
   // Centralized data preparation - only called when needed
   private async _prepareGraphData(): Promise<KuzuToIgraphParseResult> {
     this.checkInitialization();
 
     const kuzuData = await this._getKuzuData();
     const direction = this._getDirection();
+    const parseStart = performance.now();
     const parseResult = parseKuzuToIgraphInput(
       kuzuData.nodes,
       kuzuData.edges,
       direction
     );
+    const parseMs = performance.now() - parseStart;
 
     const igraphInput = parseResult.IgraphInput;
+    const createStart = performance.now();
     await this._wasmGraphModule.cleanupGraph();
     await this._wasmGraphModule.create_graph_from_kuzu_to_igraph(
       igraphInput.nodes,
@@ -192,6 +207,17 @@ export class IgraphController {
       igraphInput.directed,
       igraphInput.weight
     );
+    const createMs = performance.now() - createStart;
+    const initMs = this._pendingWasmInitMs;
+    this._pendingWasmInitMs = null;
+    this._lastGraphPrepTiming = {
+      ...emptyGraphPrepTiming(),
+      total_ms: parseMs + (initMs ?? 0) + createMs,
+      parse_kuzu_to_igraph_ms: parseMs,
+      wasm_module_init_ms: initMs,
+      create_graph_ms: createMs,
+      graph_cache_hit: false,
+    };
     return parseResult;
   }
 
@@ -217,13 +243,16 @@ export class IgraphController {
     }
 
     const kuzuData = await this._getKuzuData();
+    const parseStart = performance.now();
     const parseResult = parseKuzuToIgraphInput(
       kuzuData.nodes,
       kuzuData.edges,
       false
     );
+    const parseMs = performance.now() - parseStart;
 
     const igraphInput = parseResult.IgraphInput;
+    const createStart = performance.now();
     await this._wasmGraphModule.cleanupGraph();
     await this._wasmGraphModule.create_graph_from_kuzu_to_igraph(
       igraphInput.nodes,
@@ -232,6 +261,17 @@ export class IgraphController {
       igraphInput.directed,
       igraphInput.weight
     );
+    const createMs = performance.now() - createStart;
+    const initMs = this._pendingWasmInitMs;
+    this._pendingWasmInitMs = null;
+    this._lastGraphPrepTiming = {
+      ...emptyGraphPrepTiming(),
+      total_ms: parseMs + (initMs ?? 0) + createMs,
+      parse_kuzu_to_igraph_ms: parseMs,
+      wasm_module_init_ms: initMs,
+      create_graph_ms: createMs,
+      graph_cache_hit: false,
+    };
     return parseResult;
   }
 
