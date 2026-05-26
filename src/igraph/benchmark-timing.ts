@@ -24,6 +24,18 @@ export type BenchmarkTimingBuckets = {
   cold_first_run_ms: number | null;
 };
 
+export type WorkerBenchmarkTiming = {
+  T1_graph_prep_ms: GraphPrepTiming;
+  T2_algorithm_core_ms: number | null;
+  T3_result_postprocess_ms: number | null;
+  worker_algorithm_ms: number | null;
+};
+
+export type IgraphWorkerRunAlgorithmResponse<TResult = unknown> = {
+  result: TResult;
+  benchmarkTiming: WorkerBenchmarkTiming;
+};
+
 export const BENCHMARK_TIMING_LOG_PREFIX = "[BenchmarkTiming]";
 
 /** Algorithm dialog titles → BCxx (for run-benchmark-auto.mjs caseId filter). */
@@ -102,6 +114,27 @@ export function computePrimaryPreparedInvokeMs(
   );
   if (parts.length === 0) return null;
   return parts.reduce((a, b) => a + b, 0);
+}
+
+export function mergeWorkerAndT4Timing(
+  workerTiming: WorkerBenchmarkTiming,
+  t4Ms: number
+): BenchmarkTimingBuckets {
+  const timing = emptyBenchmarkTiming();
+  timing.T1_graph_prep_ms = {
+    ...timing.T1_graph_prep_ms,
+    ...workerTiming.T1_graph_prep_ms,
+  };
+  timing.T2_algorithm_core_ms = workerTiming.T2_algorithm_core_ms;
+  timing.T3_result_postprocess_ms = workerTiming.T3_result_postprocess_ms;
+  timing.T4_system_invoke_ms = t4Ms;
+  timing.primary_prepared_invoke_ms = computePrimaryPreparedInvokeMs(timing);
+
+  const t1Total = timing.T1_graph_prep_ms.total_ms;
+  if (t1Total != null && timing.primary_prepared_invoke_ms != null) {
+    timing.cold_first_run_ms = t1Total + timing.primary_prepared_invoke_ms;
+  }
+  return timing;
 }
 
 declare global {

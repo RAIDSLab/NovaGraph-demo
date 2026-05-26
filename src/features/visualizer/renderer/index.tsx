@@ -14,6 +14,12 @@ import GraphRendererFooter from "./footer";
 import { useGraphRendererHelpers } from "./hooks/use-graph-renderer-helpers";
 import { useZoomControls } from "./hooks/use-zoom-controls";
 import NodeMetadata from "./node-metadata";
+import {
+  ALGORITHM_RENDER_DONE_EVENT,
+  ALGORITHM_RUN_STATE_EVENT,
+  type AlgorithmRenderDoneDetail,
+  type AlgorithmRunStateDetail,
+} from "./events";
 
 import { cn } from "~/lib/utils";
 import { MODE, type ColorMap, type SizeMap } from "~/igraph/types";
@@ -49,6 +55,9 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
   const cosmographRef = useRef<CosmographRef<GraphNode, GraphEdge> | null>(
     null
   );
+  const activeRunIdRef = useRef<string | null>(null);
+  const forcedPauseByAlgorithmRef = useRef(false);
+  const pausedBeforeAlgorithmRef = useRef<boolean | null>(null);
 
   // States
   const [isSimulationPaused, setIsSimulationPaused] = useState(true);
@@ -67,6 +76,7 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
 
   // Unpause simulation if nodes/edges changed
   useEffect(() => {
+    if (forcedPauseByAlgorithmRef.current) return;
     setIsSimulationPaused(false);
   }, [nodes, edges]);
 
@@ -78,6 +88,57 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
       cosmographRef.current?.start();
     }
   }, [isSimulationPaused]);
+
+  useEffect(() => {
+    const handleAlgorithmState = (event: Event) => {
+      const detail =
+        (event as CustomEvent<AlgorithmRunStateDetail>).detail ?? null;
+      if (!detail) return;
+
+      if (detail.running) {
+        activeRunIdRef.current = detail.runId ?? null;
+        if (!forcedPauseByAlgorithmRef.current) {
+          pausedBeforeAlgorithmRef.current = isSimulationPaused;
+          forcedPauseByAlgorithmRef.current = true;
+        }
+        setIsSimulationPaused(true);
+        return;
+      }
+
+      if (forcedPauseByAlgorithmRef.current) {
+        const shouldStayPaused = pausedBeforeAlgorithmRef.current ?? false;
+        setIsSimulationPaused(shouldStayPaused);
+        pausedBeforeAlgorithmRef.current = null;
+        forcedPauseByAlgorithmRef.current = false;
+      }
+      activeRunIdRef.current = null;
+    };
+
+    window.addEventListener(ALGORITHM_RUN_STATE_EVENT, handleAlgorithmState);
+    return () =>
+      window.removeEventListener(ALGORITHM_RUN_STATE_EVENT, handleAlgorithmState);
+  }, [isSimulationPaused]);
+
+  useEffect(() => {
+    const runId = activeRunIdRef.current;
+    if (!runId || !activeResponse) return;
+
+    let raf2: number | null = null;
+    const raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        window.dispatchEvent(
+          new CustomEvent<AlgorithmRenderDoneDetail>(ALGORITHM_RENDER_DONE_EVENT, {
+            detail: { runId },
+          })
+        );
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      if (raf2 !== null) window.cancelAnimationFrame(raf2);
+    };
+  }, [activeResponse, nodes, edges]);
 
   // Get outgoing edges map
   const nodeOutgoingEdgesMap = useMemo(() => {

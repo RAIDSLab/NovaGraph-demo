@@ -25,19 +25,45 @@ import {
 import { Button } from "~/components/ui/button";
 import { useLoading } from "~/components/ui/loading";
 import {
+  ALGORITHM_RENDER_DONE_EVENT,
+  ALGORITHM_RUN_STATE_EVENT,
+  type AlgorithmRenderDoneDetail,
+} from "~/features/visualizer/renderer/events";
+import {
   computePrimaryPreparedInvokeMs,
   emptyBenchmarkTiming,
   logBenchmarkTiming,
 } from "~/igraph/benchmark-timing";
 
-const waitForUiPaint = async () => {
-  await new Promise<void>((resolve) => {
-    requestAnimationFrame(() => resolve());
+const RENDER_DONE_TIMEOUT_MS = 15_000;
+
+const waitForRenderDone = (runId: string): Promise<void> =>
+  new Promise((resolve) => {
+    let done = false;
+
+    const cleanup = () => {
+      window.removeEventListener(ALGORITHM_RENDER_DONE_EVENT, onRenderDone);
+      window.clearTimeout(timeoutId);
+    };
+
+    const finish = () => {
+      if (done) return;
+      done = true;
+      cleanup();
+      resolve();
+    };
+
+    const onRenderDone = (event: Event) => {
+      const detail =
+        (event as CustomEvent<AlgorithmRenderDoneDetail>).detail ?? null;
+      if (detail?.runId === runId) {
+        finish();
+      }
+    };
+
+    const timeoutId = window.setTimeout(finish, RENDER_DONE_TIMEOUT_MS);
+    window.addEventListener(ALGORITHM_RENDER_DONE_EVENT, onRenderDone);
   });
-  await new Promise<void>((resolve) => {
-    requestAnimationFrame(() => resolve());
-  });
-};
 
 export default function InputDialog({
   controller,
@@ -83,29 +109,35 @@ export default function InputDialog({
 
     setOpen(false);
     setInputResults(createEmptyInputResults(algorithm.inputs));
-    startLoading("Running Algorithm...");
+    startLoading("Running Algorithm");
+    const runId = `algo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const renderDonePromise = waitForRenderDone(runId);
+    window.dispatchEvent(
+      new CustomEvent(ALGORITHM_RUN_STATE_EVENT, {
+        detail: { running: true, runId },
+      })
+    );
 
     void (async () => {
       const t5Start = performance.now();
       try {
+        const igraphController = controller.getAlgorithm();
         const args = algorithm.inputs.map((input) => inputResults[input.key].value);
         console.log(`[Algorithm Input] ${algorithm.title}: ${JSON.stringify(args)}`);
 
-        const t4Start = performance.now();
-        const algorithmResponse = await algorithm.wasmFunction(
-          controller.getAlgorithm(),
-          args
+        const algorithmResponse = await igraphController.runMeasured(() =>
+          algorithm.wasmFunction(igraphController, args)
         );
-        const t4Ms = performance.now() - t4Start;
-        console.log(`Time taken for ${algorithm.title}: ${t4Ms}ms`);
-
+        startLoading("Applying Visualization");
         setActiveAlgorithm(algorithm);
         setActiveResponse(algorithmResponse);
-        await waitForUiPaint();
+        await renderDonePromise;
 
+        const igraphTiming =
+          igraphController.getLastBenchmarkTiming() ??
+          emptyBenchmarkTiming();
         const timing = {
-          ...emptyBenchmarkTiming(),
-          T4_system_invoke_ms: t4Ms,
+          ...igraphTiming,
           T5_ui_e2e_ms: performance.now() - t5Start,
         };
         timing.primary_prepared_invoke_ms = computePrimaryPreparedInvokeMs(timing);
@@ -124,8 +156,12 @@ export default function InputDialog({
             "data" in algorithmResponse ? algorithmResponse.data : algorithmResponse,
         });
       } catch (err) {
+        const igraphController = controller.getAlgorithm();
+        const igraphTiming =
+          igraphController.getLastBenchmarkTiming() ??
+          emptyBenchmarkTiming();
         const timing = {
-          ...emptyBenchmarkTiming(),
+          ...igraphTiming,
           T5_ui_e2e_ms: performance.now() - t5Start,
         };
         logBenchmarkTiming({
@@ -138,6 +174,11 @@ export default function InputDialog({
         );
       } finally {
         stopLoading();
+        window.dispatchEvent(
+          new CustomEvent(ALGORITHM_RUN_STATE_EVENT, {
+            detail: { running: false, runId },
+          })
+        );
       }
     })();
   };

@@ -121,7 +121,10 @@ import {
 } from "./algorithms/Misc/IgraphJaccardSimilarity";
 import { parseKuzuToIgraphInput } from "./utils/parseKuzuToIgraphInput";
 import {
+  computePrimaryPreparedInvokeMs,
+  emptyBenchmarkTiming,
   emptyGraphPrepTiming,
+  type BenchmarkTimingBuckets,
   type GraphPrepTiming,
 } from "./benchmark-timing";
 
@@ -146,6 +149,7 @@ export class IgraphController {
   }>;
   private _getDirection: () => boolean;
   private _lastGraphPrepTiming: GraphPrepTiming | null = null;
+  private _lastBenchmarkTiming: BenchmarkTimingBuckets | null = null;
   private _pendingWasmInitMs: number | null = null;
 
   constructor(
@@ -181,6 +185,38 @@ export class IgraphController {
 
   getLastGraphPrepTiming(): GraphPrepTiming | null {
     return this._lastGraphPrepTiming;
+  }
+
+  getLastBenchmarkTiming(): BenchmarkTimingBuckets | null {
+    return this._lastBenchmarkTiming;
+  }
+
+  async runMeasured<TResult>(invoke: () => Promise<TResult>): Promise<TResult> {
+    this._lastGraphPrepTiming = null;
+    const t4Start = performance.now();
+    try {
+      const result = await invoke();
+      const timing = emptyBenchmarkTiming();
+      timing.T1_graph_prep_ms = this._lastGraphPrepTiming ?? emptyGraphPrepTiming();
+      timing.T4_system_invoke_ms = performance.now() - t4Start;
+      timing.primary_prepared_invoke_ms = computePrimaryPreparedInvokeMs(timing);
+      if (
+        timing.T1_graph_prep_ms.total_ms != null &&
+        timing.primary_prepared_invoke_ms != null
+      ) {
+        timing.cold_first_run_ms =
+          timing.T1_graph_prep_ms.total_ms + timing.primary_prepared_invoke_ms;
+      }
+      this._lastBenchmarkTiming = timing;
+      return result;
+    } catch (error) {
+      const timing = emptyBenchmarkTiming();
+      timing.T1_graph_prep_ms = this._lastGraphPrepTiming ?? emptyGraphPrepTiming();
+      timing.T4_system_invoke_ms = performance.now() - t4Start;
+      timing.primary_prepared_invoke_ms = computePrimaryPreparedInvokeMs(timing);
+      this._lastBenchmarkTiming = timing;
+      throw error;
+    }
   }
 
   // Centralized data preparation - only called when needed
