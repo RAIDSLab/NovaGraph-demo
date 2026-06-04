@@ -38,6 +38,19 @@ export type IgraphWorkerRunAlgorithmResponse<TResult = unknown> = {
 
 export const BENCHMARK_TIMING_LOG_PREFIX = "[BenchmarkTiming]";
 
+/** Dispatched on `window` when `logBenchmarkTiming` runs (for on-device overlay). */
+export const BENCHMARK_TIMING_EVENT = "novagraph-benchmark-timing";
+
+export type BenchmarkTimingLogEntry = {
+  engine: "novagraph";
+  operation: string;
+  caseId?: string;
+  timing: BenchmarkTimingBuckets;
+  input?: unknown;
+  output?: unknown;
+  ts: number;
+};
+
 /** Algorithm dialog titles → BCxx (for run-benchmark-auto.mjs caseId filter). */
 export const BENCHMARK_CASE_ID_BY_OPERATION: Record<string, string> = {
   "Breadth-First Search": "BC01",
@@ -168,4 +181,16 @@ export function logBenchmarkTiming(payload: {
       globalThis.__novagraphBenchmarkTimings ?? [];
     globalThis.__novagraphBenchmarkTimings.push(entry);
   }
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent<BenchmarkTimingLogEntry>(BENCHMARK_TIMING_EVENT, {
+        detail: entry,
+      })
+    );
+  }
+}
+
+export function formatBenchmarkMs(ms: number | null | undefined): string {
+  if (ms == null || Number.isNaN(ms)) return "—";
+  return `${ms.toFixed(1)} ms`;
 }
