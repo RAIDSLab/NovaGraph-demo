@@ -81,7 +81,7 @@ export async function igraphJaccardSimilarity(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as JaccardSimilarityResult<number>
       )
   );
 }

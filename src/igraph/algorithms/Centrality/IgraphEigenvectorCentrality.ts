@@ -55,7 +55,7 @@ export async function igraphEigenvectorCentrality(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as EigenvectorCentralityResult<number>
       )
   );
 }

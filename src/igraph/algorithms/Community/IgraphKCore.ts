@@ -53,7 +53,7 @@ export async function igraphKCore(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as KCoreResult<number>
       )
   );
 }

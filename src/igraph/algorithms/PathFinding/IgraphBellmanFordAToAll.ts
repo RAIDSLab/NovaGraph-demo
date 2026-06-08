@@ -68,7 +68,7 @@ export async function igraphBellmanFordAToAll(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as BellmanFordAToAllResult<number>
       )
   );
 }

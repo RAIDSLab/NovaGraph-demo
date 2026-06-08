@@ -64,7 +64,7 @@ export async function igraphEulerianPath(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as EulerianPathResult<number>
       )
   );
 }

@@ -52,7 +52,7 @@ export async function igraphStrengthCentrality(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as StrengthCentralityResult<number>
       )
   );
 }

@@ -65,7 +65,7 @@ export async function igraphDFS(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as DFSResult<number>
       )
   );
 }

@@ -80,7 +80,7 @@ export async function igraphRandomWalk(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as RandomWalkResult<number>
       )
   );
 }

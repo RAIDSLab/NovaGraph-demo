@@ -81,7 +81,7 @@ export async function igraphYen(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as YenResult<number>
       )
   );
 }

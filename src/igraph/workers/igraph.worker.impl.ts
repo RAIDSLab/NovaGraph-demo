@@ -176,6 +176,7 @@ type WorkerAlgorithmResult =
 let moduleInstance: GraphModule | null = null;
 let preparedGraphFingerprint: string | null = null;
 let cachedGraphSnapshot: IgraphWorkerGraphSnapshot | null = null;
+/** Maps to `wasm_module_init_ms` in benchmark timing (JS module init time). */
 let wasmModuleInitMs: number | null = null;
 
 const getModule = async (): Promise<GraphModule> => {

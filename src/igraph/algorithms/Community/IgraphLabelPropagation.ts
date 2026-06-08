@@ -51,7 +51,7 @@ export async function igraphLabelPropagation(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as LabelPropagationResult<number>
       )
   );
 }

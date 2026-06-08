@@ -49,7 +49,7 @@ export async function igraphTopologicalSort(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as TopologicalSortResult<number>
       )
   );
 }

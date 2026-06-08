@@ -52,7 +52,7 @@ export async function igraphDegreeCentrality(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as DegreeCentralityResult<number>
       )
   );
 }

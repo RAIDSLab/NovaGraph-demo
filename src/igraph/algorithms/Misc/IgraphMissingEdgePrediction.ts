@@ -64,7 +64,7 @@ export async function igraphMissingEdgePrediction(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as MissingEdgePredictionResult<number>
       )
   );
 }

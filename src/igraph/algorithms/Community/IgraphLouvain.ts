@@ -54,7 +54,7 @@ export async function igraphLouvain(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as LouvainResult<number>
       )
   );
 }

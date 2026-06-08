@@ -52,7 +52,7 @@ export async function igraphClosenessCentrality(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as ClosenessCentralityResult<number>
       )
   );
 }

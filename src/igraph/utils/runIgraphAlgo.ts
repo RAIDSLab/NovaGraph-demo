@@ -1,4 +1,4 @@
-import type { GraphModule } from "../types";
+import type { GraphModule, IgraphRawAlgorithmResult } from "../types";
 
 export type AlgorithmSegmentTiming = {
   T2_algorithm_core_ms: number;
@@ -22,15 +22,15 @@ export async function _runIgraphAlgo<M extends GraphModule, R>(
 }
 
 /**
- * T2 = WASM call; T3 = _parseResult / label mapping (BENCHMARK_TIMING_SPEC §3.2).
+ * T2 = algorithm core call; T3 = _parseResult / label mapping (BENCHMARK_TIMING_SPEC §3.2).
  */
-export async function runTimedIgraphAlgorithm<M extends GraphModule, Raw, Parsed>(
+export async function runTimedIgraphAlgorithm<M extends GraphModule, Parsed>(
   mod: M,
-  wasmExec: (m: M) => Promise<Raw> | Raw,
-  parse: (raw: Raw) => Parsed
+  algoExec: (m: M) => Promise<IgraphRawAlgorithmResult> | IgraphRawAlgorithmResult,
+  parse: (raw: IgraphRawAlgorithmResult) => Parsed
 ): Promise<AlgorithmTimedResult<Parsed>> {
   const t2Start = performance.now();
-  const raw = await _runIgraphAlgo(mod, wasmExec);
+  const raw = await _runIgraphAlgo(mod, algoExec);
   const T2_algorithm_core_ms = performance.now() - t2Start;
 
   const t3Start = performance.now();

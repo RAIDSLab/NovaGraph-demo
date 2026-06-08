@@ -75,7 +75,7 @@ export async function igraphDijkstraAToB(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as DijkstraAToBResult<number>
       )
   );
 }

@@ -7,11 +7,6 @@
 /.react-router/
 /build/
 
-# Graph.js
-/src/graph.js
-/src/graph.wasm
-/src/graph.d.ts
-
 # import examples
 /src/features/visualizer/import/implementations/sample/
 

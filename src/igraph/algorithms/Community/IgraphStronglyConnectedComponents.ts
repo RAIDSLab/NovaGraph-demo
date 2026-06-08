@@ -51,7 +51,7 @@ export async function igraphStronglyConnectedComponents(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as SCCResult<number>
       )
   );
 }

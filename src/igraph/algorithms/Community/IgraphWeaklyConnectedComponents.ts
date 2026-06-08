@@ -51,7 +51,7 @@ export async function igraphWeaklyConnectedComponents(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as WCCResult<number>
       )
   );
 }

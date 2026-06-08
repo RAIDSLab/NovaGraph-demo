@@ -58,7 +58,7 @@ export async function igraphLocalClusteringCoefficient(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as LocalClusteringCoefficientResult<number>
       )
   );
 }

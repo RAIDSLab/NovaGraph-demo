@@ -61,7 +61,7 @@ export async function igraphBFS(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as BFSResult<number>
       )
   );
 }

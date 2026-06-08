@@ -66,7 +66,7 @@ export async function igraphVerticesAreAdjacent(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as VerticesAreAdjacentResult<number>
       )
   );
 }

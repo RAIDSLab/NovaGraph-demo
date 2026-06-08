@@ -58,7 +58,7 @@ export async function igraphTriangles(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as TriangleCountResult<number>
       )
   );
 }

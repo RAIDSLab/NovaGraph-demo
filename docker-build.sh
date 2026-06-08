@@ -197,10 +197,6 @@ if [ "$SERVICE" == "novagraph-dev" ]; then
                 .
             
             echo ""
-            echo -e "${GREEN}Copying WASM files to local workspace...${NC}"
-            docker run --rm -v $(pwd):/host ${SERVICE} cp ./src/graph.js ./src/graph.wasm ./src/graph.d.ts /host/src/
-            
-            echo ""
             echo -e "${GREEN}Starting ${SERVICE} container...${NC}"
             echo -e "${YELLOW}Your application will be available at http://localhost:5173${NC}"
             echo ""
@@ -224,10 +220,6 @@ if [ "$SERVICE" == "novagraph-dev" ]; then
                 --build-arg KUZU_TYPE=${KUZU_TYPE} \
                 --build-arg KUZU_MODE=${KUZU_MODE} \
                 .
-            
-            echo ""
-            echo -e "${GREEN}Copying WASM files to local workspace...${NC}"
-            docker run --rm -v $(pwd):/host ${SERVICE} cp ./src/graph.js ./src/graph.wasm ./src/graph.d.ts /host/src/
             
             echo ""
             echo -e "${GREEN}Starting ${SERVICE} container...${NC}"

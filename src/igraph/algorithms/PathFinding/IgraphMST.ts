@@ -68,7 +68,7 @@ export async function igraphMST(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as MSTResult<number>
       )
   );
 }

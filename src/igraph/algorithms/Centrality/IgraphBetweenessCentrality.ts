@@ -53,7 +53,7 @@ export async function igraphBetweennessCentrality(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as BetweennessCentralityResult<number>
       )
   );
 }

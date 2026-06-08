@@ -61,7 +61,7 @@ export async function igraphEulerianCircuit(
       _parseResult(
         graphData.IgraphToKuzuMap,
         graphData.nodesMap,
-        wasmResult
+        wasmResult as EulerianCircuitResult<number>
       )
   );
 }
