@@ -1,8 +1,5 @@
-import {
-  List,
-  useDynamicRowHeight,
-  type RowComponentProps,
-} from "react-window";
+import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 
@@ -51,7 +48,7 @@ function BellmanFordAToB(
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <p className="font-medium text-sm text-positive">
         ✓ Bellman Ford A to B completed successfully
       </p>
@@ -75,25 +72,23 @@ function BellmanFordAToB(
       </div>
 
       {/* Step By Step */}
-      <div className="space-y-3 border-t border-t-border pt-3 isolate">
-        <h3 className="font-semibold">Step By Step</h3>
-        <div className="max-h-80 overflow-y-auto">
-          {path.length > 0 ? (
-            <List
-              rowComponent={BFSinglePathRowComponent}
-              rowCount={path.length}
-              rowHeight={rowHeight}
-              rowProps={{ cumulative, path }}
-            />
-          ) : (
-            <p className="text-critical font-medium">Not reachable</p>
-          )}
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-3 border-t border-t-border pt-3 isolate">
+        <h3 className="shrink-0 font-semibold">Step By Step</h3>
+        {path.length > 0 ? (
+          <VirtualizedListPanel
+            rowComponent={BFSinglePathRowComponent}
+            rowCount={path.length}
+            rowHeight={rowHeight}
+            rowProps={{ cumulative, path }}
+          />
+        ) : (
+          <p className="text-critical font-medium">Not reachable</p>
+        )}
       </div>
 
       {/* What this means */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
-        <h3 className="font-semibold">What this means</h3>
+      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
+        <h3 className="shrink-0 font-semibold">What this means</h3>
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
             Bellman-Ford finds the{" "}

@@ -1,9 +1,6 @@
 import { useState } from "react";
-import {
-  List,
-  useDynamicRowHeight,
-  type RowComponentProps,
-} from "react-window";
+import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 
@@ -57,7 +54,7 @@ function BellmanFordAToAll(
   );
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <p className="font-medium text-sm text-positive">
         ✓ Bellman Ford A to All completed successfully
       </p>
@@ -68,9 +65,9 @@ function BellmanFordAToAll(
       </p>
 
       {/* Paths */}
-      <div className="space-y-3 border-t border-t-border pt-3 isolate">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 border-t border-t-border pt-3 isolate">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold">Traversal Paths</h3>
+          <h3 className="shrink-0 font-semibold">Traversal Paths</h3>
           <div className="flex gap-2">
             <span className="text-sm">Show Weight:</span>
             <InputComponent
@@ -80,19 +77,17 @@ function BellmanFordAToAll(
             />
           </div>
         </div>
-        <div className="max-h-80 overflow-y-auto border border-border rounded-md">
-          <List
+        <VirtualizedListPanel
             rowComponent={BFSingleSourcePathRowComponent}
             rowCount={paths.length + 1} // Top header row
             rowHeight={rowHeight}
             rowProps={{ showWeight: showWeight.value ?? false, paths }}
           />
-        </div>
       </div>
 
       {/* What this means */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
-        <h3 className="font-semibold">What this means</h3>
+      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
+        <h3 className="shrink-0 font-semibold">What this means</h3>
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
             Bellman-Ford computes{" "}

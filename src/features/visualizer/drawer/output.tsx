@@ -67,9 +67,9 @@ export default function OutputTabContent({
 
   return (
     <>
-      <div className="flex flex-col gap-4 h-full">
-        <div className="flex-1 basis-0 min-h-0 overflow-y-auto">
-          {outputContent}
+      <div className="flex h-full min-h-0 flex-col gap-4">
+        <div className="min-h-0 flex-1 basis-0 overflow-hidden">
+          <div className="h-full min-h-0">{outputContent}</div>
         </div>
         <div className="flex flex-wrap-reverse justify-between gap-2">
           <CodeOutputTabs enableOutput={enableOutput} showCodeTab={showCodeTab} />

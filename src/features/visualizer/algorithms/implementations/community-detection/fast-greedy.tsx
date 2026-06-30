@@ -1,8 +1,5 @@
-import {
-  List,
-  useDynamicRowHeight,
-  type RowComponentProps,
-} from "react-window";
+import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 import { ChevronRight } from "lucide-react";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
@@ -32,7 +29,7 @@ function FastGreedy(props: GraphAlgorithmResult<FastGreedyOutputData>) {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <p className="font-medium text-sm text-positive">
         ✓ Fast Greedy completed successfully
       </p>
@@ -44,25 +41,23 @@ function FastGreedy(props: GraphAlgorithmResult<FastGreedyOutputData>) {
       </p>
 
       {/* Communities */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
-        <h3 className="font-semibold">Communities</h3>
-        <div className="max-h-80 overflow-y-auto">
-          {communities.length > 0 ? (
-            <List
-              rowComponent={FastGreedyCommunityRowComponent}
-              rowCount={communities.length}
-              rowHeight={rowHeight}
-              rowProps={{ communities }}
-            />
-          ) : (
-            <p className="text-critical font-medium">No communities found</p>
-          )}
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-3 pt-3 border-t border-t-border">
+        <h3 className="shrink-0 font-semibold">Communities</h3>
+        {communities.length > 0 ? (
+          <VirtualizedListPanel
+            rowComponent={FastGreedyCommunityRowComponent}
+            rowCount={communities.length}
+            rowHeight={rowHeight}
+            rowProps={{ communities }}
+          />
+        ) : (
+          <p className="text-critical font-medium">No communities found</p>
+        )}
       </div>
 
       {/* What this means */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
-        <h3 className="font-semibold">What this means</h3>
+      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
+        <h3 className="shrink-0 font-semibold">What this means</h3>
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
             Fast Greedy groups nodes into communities by{" "}

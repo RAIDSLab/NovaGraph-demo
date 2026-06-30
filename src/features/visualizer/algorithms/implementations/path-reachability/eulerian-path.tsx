@@ -1,8 +1,5 @@
-import {
-  List,
-  useDynamicRowHeight,
-  type RowComponentProps,
-} from "react-window";
+import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 
@@ -33,7 +30,7 @@ function EulerianPath(props: GraphAlgorithmResult<EulerianPathOutputData>) {
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       {hasUsablePath ? (
         <p className="font-medium text-sm text-positive">
           ✓ Eulerian Path completed successfully
@@ -67,21 +64,19 @@ function EulerianPath(props: GraphAlgorithmResult<EulerianPathOutputData>) {
       </div>
 
       {/* Step By Step */}
-      <div className="space-y-3 border-t border-t-border pt-3 isolate">
-        <h3 className="font-semibold">Step By Step</h3>
-        <div className="max-h-80 overflow-y-auto">
-          <List
+      <div className="flex min-h-0 flex-1 flex-col gap-3 border-t border-t-border pt-3 isolate">
+        <h3 className="shrink-0 font-semibold">Step By Step</h3>
+        <VirtualizedListPanel
             rowComponent={EulerianPathRowComponent}
             rowCount={path.length}
             rowHeight={rowHeight}
             rowProps={{ cumulative, path }}
           />
-        </div>
       </div>
 
       {/* What this means */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
-        <h3 className="font-semibold">What this means</h3>
+      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
+        <h3 className="shrink-0 font-semibold">What this means</h3>
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
             An Eulerian path is a walk that{" "}

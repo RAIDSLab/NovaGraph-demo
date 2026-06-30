@@ -1,8 +1,5 @@
-import {
-  List,
-  useDynamicRowHeight,
-  type RowComponentProps,
-} from "react-window";
+import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 import { ChevronRight } from "lucide-react";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
@@ -32,27 +29,25 @@ function SCC(props: GraphAlgorithmResult<SCCOutputData>) {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <p className="font-medium text-sm text-positive">
         ✓ Strongly Connected Components (SCC) completed successfully
       </p>
 
       {/* Components */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
-        <h3 className="font-semibold">Components</h3>
-        <div className="max-h-80 overflow-y-auto">
-          <List
+      <div className="flex min-h-0 flex-1 flex-col gap-3 pt-3 border-t border-t-border">
+        <h3 className="shrink-0 font-semibold">Components</h3>
+        <VirtualizedListPanel
             rowComponent={SCCRowComponent}
             rowCount={components.length}
             rowHeight={rowHeight}
             rowProps={{ components }}
           />
-        </div>
       </div>
 
       {/* What this means */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
-        <h3 className="font-semibold">What this means</h3>
+      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
+        <h3 className="shrink-0 font-semibold">What this means</h3>
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
             Strongly Connected Components (SCCs) partition a{" "}

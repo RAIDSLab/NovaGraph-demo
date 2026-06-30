@@ -1,8 +1,5 @@
-import {
-  List,
-  useDynamicRowHeight,
-  type RowComponentProps,
-} from "react-window";
+import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 
@@ -30,7 +27,7 @@ function LocalClusteringCoefficient(
   });
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <p className="font-medium text-sm text-positive">
         ✓ Local Clustering Coefficient completed successfully
       </p>
@@ -52,22 +49,20 @@ function LocalClusteringCoefficient(
       </div>
 
       {/* Coefficients */}
-      <div className="space-y-3 border-t border-t-border pt-3 isolate">
-        <h3 className="font-semibold">Coefficients</h3>
+      <div className="flex min-h-0 flex-1 flex-col gap-3 border-t border-t-border pt-3 isolate">
+        <h3 className="shrink-0 font-semibold">Coefficients</h3>
         {/* Rows */}
-        <div className="max-h-80 overflow-y-auto border border-border rounded-md">
-          <List
+        <VirtualizedListPanel
             rowComponent={LocalClusteringCoefficientRowComponent}
             rowCount={coefficients.length + 1} // Top header row
             rowHeight={rowHeight}
             rowProps={{ coefficients }}
           />
-        </div>
       </div>
 
       {/* What this means */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
-        <h3 className="font-semibold">What this means</h3>
+      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
+        <h3 className="shrink-0 font-semibold">What this means</h3>
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
             A node's local clustering coefficient measures how many{" "}

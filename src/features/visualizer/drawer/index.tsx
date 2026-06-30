@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { observer } from "mobx-react-lite";
 import { toast } from "sonner";
@@ -14,7 +14,9 @@ import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsContent } from "~/components/ui/tabs";
 
-const DRAWER_HEIGHT = "18rem";
+const DEFAULT_DRAWER_HEIGHT_PX = 288;
+const MIN_DRAWER_HEIGHT_PX = 160;
+const MIN_GRAPH_HEIGHT_PX = 200;
 
 const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
   const {
@@ -31,8 +33,55 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
   // States
   const [tabValue, setTabValue] = useState("code");
   const [isExpanded, setIsExpanded] = useState(false);
+  const [drawerHeight, setDrawerHeight] = useState(DEFAULT_DRAWER_HEIGHT_PX);
+  const [isResizing, setIsResizing] = useState(false);
+  const drawerRef = useRef<HTMLDivElement>(null);
 
   const showCodeTab = database!.persistent;
+
+  const clampDrawerHeight = useCallback((height: number) => {
+    const container = drawerRef.current?.parentElement;
+    const maxHeight = container
+      ? container.getBoundingClientRect().height - MIN_GRAPH_HEIGHT_PX
+      : DEFAULT_DRAWER_HEIGHT_PX * 2;
+    return Math.min(
+      Math.max(height, MIN_DRAWER_HEIGHT_PX),
+      Math.max(maxHeight, MIN_DRAWER_HEIGHT_PX)
+    );
+  }, []);
+
+  const handleResizeStart = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const container = drawerRef.current?.parentElement;
+      if (!container) return;
+      const containerBottom = container.getBoundingClientRect().bottom;
+      setDrawerHeight(clampDrawerHeight(containerBottom - event.clientY));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.body.style.cursor = "ns-resize";
+    document.body.style.userSelect = "none";
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [isResizing, clampDrawerHeight]);
 
   // Default to open when response internal value is changed
   useEffect(() => {
@@ -81,9 +130,10 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
 
   return (
     <div
+      ref={drawerRef}
       style={
         {
-          "--drawer-height": DRAWER_HEIGHT,
+          "--drawer-height": `${drawerHeight}px`,
         } as React.CSSProperties
       }
       className={cn(
@@ -93,10 +143,28 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
     >
       <div
         className={cn(
-          "transition-all duration-250 ease-in-out",
+          "relative",
+          !isResizing && "transition-all duration-250 ease-in-out",
           isExpanded ? "h-[var(--drawer-height)]" : "h-12"
         )}
       >
+        {isExpanded && (
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Resize code output panel"
+            className={cn(
+              "absolute -top-1 left-0 right-0 z-10 flex h-2 items-center justify-center",
+              "cursor-ns-resize touch-none",
+              "hover:bg-neutral-low/60 active:bg-neutral-low"
+            )}
+            onMouseDown={handleResizeStart}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="h-1 w-10 rounded-full bg-border" />
+          </div>
+        )}
+
         {/* Header */}
         <div
           className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-neutral-low border-t border-b border-border"
@@ -125,7 +193,7 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
             value={showCodeTab ? tabValue : "output"}
             onValueChange={setTabValue}
             defaultValue={showCodeTab ? "code" : "output"}
-            className="h-[calc(var(--drawer-height)-48px)] p-4"
+            className="h-[calc(var(--drawer-height)-48px)] min-h-0 p-4"
           >
             {/* Content for Code - only shown when persistent (store in database) */}
             {showCodeTab && (
@@ -142,7 +210,7 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
               </TabsContent>
             )}
             {/* Content for Output */}
-            <TabsContent value="output" className="flex flex-col">
+              <TabsContent value="output" className="flex min-h-0 flex-col">
               <OutputTabContent
                 activeAlgorithm={activeAlgorithm}
                 activeResponse={activeResponse}

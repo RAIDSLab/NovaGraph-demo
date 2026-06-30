@@ -1,4 +1,5 @@
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
+import { FlexibleScrollPanel } from "../../components/flexible-scroll-panel";
 
 import { createNumberInput } from "~/features/visualizer/inputs";
 import type { KCoreOutputData } from "~/igraph/algorithms/Community/IgraphKCore";
@@ -27,7 +28,7 @@ export const kCore = createGraphAlgorithm<KCoreOutputData>({
 function KCore(props: GraphAlgorithmResult<KCoreOutputData>) {
   const { k, max_coreness, cores } = props.data;
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <p className="font-medium text-sm text-positive">
         ✓ K Core Decomposition completed successfully
       </p>
@@ -55,11 +56,11 @@ function KCore(props: GraphAlgorithmResult<KCoreOutputData>) {
       </div>
 
       {/* Nodes in 2-Core */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
-        <h3 className="font-semibold">Nodes in Core</h3>
-        <div className="max-h-80 overflow-auto">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 pt-3 border-t border-t-border">
+        <h3 className="shrink-0 font-semibold">Nodes in Core</h3>
+        <FlexibleScrollPanel>
           {cores.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 p-1">
               {cores.map((core, i) => (
                 <span
                   key={`${i}-${core}`}
@@ -70,15 +71,15 @@ function KCore(props: GraphAlgorithmResult<KCoreOutputData>) {
               ))}
             </div>
           ) : (
-            <p className="text-critical font-medium">
+            <p className="text-critical font-medium p-1">
               No nodes in the graph has degree of {k}
             </p>
           )}
-        </div>
+        </FlexibleScrollPanel>
       </div>
 
       {/* What this means */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
+      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
         <h3 className="font-semibold">What this means</h3>
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>

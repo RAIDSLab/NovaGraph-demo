@@ -1,4 +1,5 @@
-import { List, type RowComponentProps } from "react-window";
+import { type RowComponentProps } from "react-window";
+import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 
@@ -21,7 +22,7 @@ function TopologicalSort(
   const { order } = props.data;
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <p className="font-medium text-sm text-positive">
         ✓ Topological Sort completed successfully
       </p>
@@ -34,21 +35,19 @@ function TopologicalSort(
       </p>
 
       {/* Topological Order */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
-        <h3 className="font-semibold">Topological Order</h3>
-        <div className="max-h-80 overflow-y-auto border border-border rounded-md">
-          <List
+      <div className="flex min-h-0 flex-1 flex-col gap-3 pt-3 border-t border-t-border">
+        <h3 className="shrink-0 font-semibold">Topological Order</h3>
+        <VirtualizedListPanel
             rowComponent={TopologicalOrderRowComponent}
             rowCount={order.length + 1} // Top header row
             rowHeight={36}
             rowProps={{ order }}
           />
-        </div>
       </div>
 
       {/* What this means */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
-        <h3 className="font-semibold">What this means</h3>
+      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
+        <h3 className="shrink-0 font-semibold">What this means</h3>
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
             Topological sort orders a{" "}

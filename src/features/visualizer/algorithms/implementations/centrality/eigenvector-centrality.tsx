@@ -1,8 +1,5 @@
-import {
-  List,
-  useDynamicRowHeight,
-  type RowComponentProps,
-} from "react-window";
+import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 
@@ -33,7 +30,7 @@ function EigenvectorCentrality(
   );
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <p className="font-medium text-sm text-positive">
         ✓ Eigenvector Centrality completed successfully
       </p>
@@ -73,21 +70,19 @@ function EigenvectorCentrality(
       )}
 
       {/* Centralities */}
-      <div className="space-y-3 border-t border-t-border pt-3 isolate">
-        <h3 className="font-semibold">Centralities</h3>
-        <div className="max-h-80 overflow-y-auto border border-border rounded-md">
-          <List
+      <div className="flex min-h-0 flex-1 flex-col gap-3 border-t border-t-border pt-3 isolate">
+        <h3 className="shrink-0 font-semibold">Centralities</h3>
+        <VirtualizedListPanel
             rowComponent={EigenvectorCentralityRowComponent}
             rowCount={sortedCentralities.length + 1} // Top header row
             rowHeight={rowHeight}
             rowProps={{ centralities: sortedCentralities }}
           />
-        </div>
       </div>
 
       {/* What this means */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
-        <h3 className="font-semibold">What this means</h3>
+      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
+        <h3 className="shrink-0 font-semibold">What this means</h3>
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
             Eigenvector centrality scores nodes higher when they are connected

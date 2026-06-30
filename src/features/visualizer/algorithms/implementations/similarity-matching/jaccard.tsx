@@ -1,6 +1,7 @@
 import { Grid, type CellComponentProps } from "react-window";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
+import { FlexibleScrollPanel } from "../../components/flexible-scroll-panel";
 
 import { createAlgorithmSelectInput } from "~/features/visualizer/inputs";
 import type { JaccardSimilarityOutputData } from "~/igraph/algorithms/Misc/IgraphJaccardSimilarity";
@@ -39,7 +40,7 @@ export const jaccardSimilarity =
 function Jaccard(props: GraphAlgorithmResult<JaccardSimilarityOutputData>) {
   const { nodes, similarityMatrix, maxSimilarity } = props.data;
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <p className="font-medium text-sm text-positive">
         ✓ Jaccard Similarity completed successfully
       </p>
@@ -67,22 +68,22 @@ function Jaccard(props: GraphAlgorithmResult<JaccardSimilarityOutputData>) {
       </div>
 
       {/* Similarity Matrix */}
-      <div className="space-y-3 border-t border-t-border pt-3 isolate">
-        <h3 className="font-semibold">Similarity Matrix</h3>
-        <div className="max-h-80 overflow-auto">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 border-t border-t-border pt-3 isolate">
+        <h3 className="shrink-0 font-semibold">Similarity Matrix</h3>
+        <FlexibleScrollPanel>
           <Grid
             cellComponent={JaccardSimilarityCellComponent}
-            columnCount={nodes.length + 1} // for left header col
-            rowCount={nodes.length + 1} // for top header row
+            columnCount={nodes.length + 1}
+            rowCount={nodes.length + 1}
             rowHeight={32}
             columnWidth={200}
             cellProps={{ nodes, similarityMatrix }}
           />
-        </div>
+        </FlexibleScrollPanel>
       </div>
 
       {/* What this means */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
+      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
         <h3 className="font-semibold">What this means</h3>
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
