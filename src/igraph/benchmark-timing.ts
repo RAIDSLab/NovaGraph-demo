@@ -41,6 +41,20 @@ export const BENCHMARK_TIMING_LOG_PREFIX = "[BenchmarkTiming]";
 /** Dispatched on `window` when `logBenchmarkTiming` runs (for on-device overlay). */
 export const BENCHMARK_TIMING_EVENT = "novagraph-benchmark-timing";
 
+function parseTruthyEnv(value: string | undefined): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+/** Controlled by `VITE_BENCHMARK_TIMING` at startup (default: off). */
+export function isBenchmarkTimingEnabled(): boolean {
+  if (typeof import.meta !== "undefined" && import.meta.env) {
+    return parseTruthyEnv(String(import.meta.env.VITE_BENCHMARK_TIMING ?? ""));
+  }
+  return false;
+}
+
 export type BenchmarkTimingLogEntry = {
   engine: "novagraph";
   operation: string;
@@ -167,6 +181,8 @@ export function logBenchmarkTiming(payload: {
   input?: unknown;
   output?: unknown;
 }) {
+  if (!isBenchmarkTimingEnabled()) return;
+
   const caseId =
     payload.caseId ?? BENCHMARK_CASE_ID_BY_OPERATION[payload.operation] ?? undefined;
   const entry = {

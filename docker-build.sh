@@ -95,6 +95,25 @@ parse_action() {
     esac
 }
 
+# Function to parse benchmark timing selection
+parse_benchmark_timing() {
+    local choice=$1
+    case $choice in
+        1)
+            VITE_BENCHMARK_TIMING="false"
+            BENCHMARK_TIMING_DISPLAY="off"
+            ;;
+        2)
+            VITE_BENCHMARK_TIMING="true"
+            BENCHMARK_TIMING_DISPLAY="on"
+            ;;
+        *)
+            echo -e "${RED}Invalid selection. Please choose 1 or 2.${NC}"
+            exit 1
+            ;;
+    esac
+}
+
 # Cleanup routine before rebuild to avoid stale layers/cache.
 cleanup_before_rebuild() {
     echo -e "${YELLOW}Cleaning Docker artifacts before rebuild...${NC}"
@@ -155,6 +174,21 @@ else
     ACTION_NUM=$action_input
 fi
 
+echo ""
+echo "Please select benchmark timing:"
+echo ""
+echo -e "  1. off - Hide timing overlay and disable console logs ${GREEN}(default)${NC}"
+echo "  2. on  - Show timing overlay and enable console logs"
+echo ""
+echo -n "Enter your choice [1-2] (default: 1): "
+read -r benchmark_input
+
+if [ -z "$benchmark_input" ]; then
+    BENCHMARK_TIMING_NUM=1
+else
+    BENCHMARK_TIMING_NUM=$benchmark_input
+fi
+
 # Validate mode
 if ! [[ "$MODE" =~ ^[1-4]$ ]]; then
     echo -e "${RED}Error: Mode must be 1, 2, 3, or 4${NC}"
@@ -173,16 +207,24 @@ if ! [[ "$ACTION_NUM" =~ ^[1-3]$ ]]; then
     exit 1
 fi
 
+# Validate benchmark timing
+if ! [[ "$BENCHMARK_TIMING_NUM" =~ ^[1-2]$ ]]; then
+    echo -e "${RED}Error: Benchmark timing must be 1 or 2${NC}"
+    exit 1
+fi
+
 # Parse selections
 parse_mode $MODE
 parse_service $SERVICE_NUM
 parse_action $ACTION_NUM
+parse_benchmark_timing $BENCHMARK_TIMING_NUM
 
 echo ""
 echo -e "${GREEN}Configuration:${NC}"
 echo "  Mode: ${KUZU_TYPE} ${KUZU_MODE}"
 echo "  Service: ${SERVICE}"
 echo "  Action: ${ACTION_DISPLAY}"
+echo "  Benchmark timing: ${BENCHMARK_TIMING_DISPLAY}"
 echo ""
 
 # Execute Docker commands based on service and action
@@ -194,6 +236,7 @@ if [ "$SERVICE" == "novagraph-dev" ]; then
             docker build -t ${SERVICE} --target development \
                 --build-arg KUZU_TYPE=${KUZU_TYPE} \
                 --build-arg KUZU_MODE=${KUZU_MODE} \
+                --build-arg VITE_BENCHMARK_TIMING=${VITE_BENCHMARK_TIMING} \
                 .
             
             echo ""
@@ -214,6 +257,7 @@ if [ "$SERVICE" == "novagraph-dev" ]; then
                 -e VITE_KUZU_TYPE=${KUZU_TYPE} \
                 -e KUZU_MODE=${KUZU_MODE} \
                 -e VITE_KUZU_MODE=${KUZU_MODE} \
+                -e VITE_BENCHMARK_TIMING=${VITE_BENCHMARK_TIMING} \
                 ${SERVICE}
             ;;
         rebuild)
@@ -223,6 +267,7 @@ if [ "$SERVICE" == "novagraph-dev" ]; then
                 --no-cache \
                 --build-arg KUZU_TYPE=${KUZU_TYPE} \
                 --build-arg KUZU_MODE=${KUZU_MODE} \
+                --build-arg VITE_BENCHMARK_TIMING=${VITE_BENCHMARK_TIMING} \
                 .
             
             echo ""
@@ -243,6 +288,7 @@ if [ "$SERVICE" == "novagraph-dev" ]; then
                 -e VITE_KUZU_TYPE=${KUZU_TYPE} \
                 -e KUZU_MODE=${KUZU_MODE} \
                 -e VITE_KUZU_MODE=${KUZU_MODE} \
+                -e VITE_BENCHMARK_TIMING=${VITE_BENCHMARK_TIMING} \
                 ${SERVICE}
             ;;
         run)
@@ -259,6 +305,7 @@ if [ "$SERVICE" == "novagraph-dev" ]; then
                 -e VITE_KUZU_TYPE=${KUZU_TYPE} \
                 -e KUZU_MODE=${KUZU_MODE} \
                 -e VITE_KUZU_MODE=${KUZU_MODE} \
+                -e VITE_BENCHMARK_TIMING=${VITE_BENCHMARK_TIMING} \
                 ${SERVICE}
             ;;
     esac
@@ -270,6 +317,7 @@ else
             docker build -t ${SERVICE} --target production \
                 --build-arg KUZU_TYPE=${KUZU_TYPE} \
                 --build-arg KUZU_MODE=${KUZU_MODE} \
+                --build-arg VITE_BENCHMARK_TIMING=${VITE_BENCHMARK_TIMING} \
                 .
             
             echo ""
@@ -285,6 +333,7 @@ else
                 --no-cache \
                 --build-arg KUZU_TYPE=${KUZU_TYPE} \
                 --build-arg KUZU_MODE=${KUZU_MODE} \
+                --build-arg VITE_BENCHMARK_TIMING=${VITE_BENCHMARK_TIMING} \
                 .
             
             echo ""

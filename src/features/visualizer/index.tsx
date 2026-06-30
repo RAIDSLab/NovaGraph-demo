@@ -10,6 +10,7 @@ import GraphRenderer from "./renderer";
 import { StoreProvider } from "./hooks/use-store";
 import CodeOutputDrawer from "./drawer";
 import BenchmarkTimingOverlay from "./benchmark-timing-overlay";
+import { isBenchmarkTimingEnabled } from "~/igraph/benchmark-timing";
 
 const Visualizer = observer(() => {
   const [store] = useState(() => new VisualizerStore());
@@ -34,7 +35,7 @@ const Visualizer = observer(() => {
 
   return (
     <StoreProvider store={store}>
-      <BenchmarkTimingOverlay />
+      {isBenchmarkTimingEnabled() && <BenchmarkTimingOverlay />}
       <div className="flex flex-col w-screen h-screen overflow-hidden">
         <Header />
         <div className="flex flex-row flex-1 [&>*]:h-[calc(100vh-64px)]">
