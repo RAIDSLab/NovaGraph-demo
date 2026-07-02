@@ -14,9 +14,9 @@ import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsContent } from "~/components/ui/tabs";
 
-const DEFAULT_DRAWER_HEIGHT_PX = 288;
-const MIN_DRAWER_HEIGHT_PX = 160;
-const MIN_GRAPH_HEIGHT_PX = 200;
+const DEFAULT_DRAWER_HEIGHT_PX = 500;
+const MIN_DRAWER_HEIGHT_PX = 250;
+const MIN_GRAPH_HEIGHT_PX = 250;
 
 const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
   const {
@@ -87,6 +87,9 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
   useEffect(() => {
     if (!!activeResponse) {
       setIsExpanded(true);
+      setDrawerHeight((height) =>
+        Math.max(height, DEFAULT_DRAWER_HEIGHT_PX)
+      );
       setTabValue("output");
     } else {
       setTabValue(showCodeTab ? "code" : "output");
@@ -193,11 +196,11 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
             value={showCodeTab ? tabValue : "output"}
             onValueChange={setTabValue}
             defaultValue={showCodeTab ? "code" : "output"}
-            className="h-[calc(var(--drawer-height)-48px)] min-h-0 p-4"
+            className="flex h-[calc(var(--drawer-height)-48px)] min-h-0 overflow-hidden p-4"
           >
             {/* Content for Code - only shown when persistent (store in database) */}
             {showCodeTab && (
-              <TabsContent value="code" className="flex flex-col">
+              <TabsContent value="code" className="flex min-h-0 flex-col overflow-hidden">
                 <CodeTabContent
                   code={code}
                   setCode={setCode}
@@ -210,7 +213,7 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
               </TabsContent>
             )}
             {/* Content for Output */}
-              <TabsContent value="output" className="flex min-h-0 flex-col">
+              <TabsContent value="output" className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <OutputTabContent
                 activeAlgorithm={activeAlgorithm}
                 activeResponse={activeResponse}

@@ -44,24 +44,24 @@ function BFS(props: GraphAlgorithmResult<BFSOutputData>) {
             ✓ BFS completed successfully
           </p>
 
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="flex justify-between gap-2">
+          <div className="flex flex-col gap-1.5 text-sm">
+            <div className="flex items-start justify-between gap-4">
               <span className="text-typography-secondary">Source:</span>
-              <span className="text-typography-primary font-medium">
+              <span className="min-w-0 text-right font-medium text-typography-primary break-words">
                 {source}
               </span>
             </div>
-            <div className="flex justify-between gap-2">
+            <div className="flex items-start justify-between gap-4">
               <span className="text-typography-secondary">Nodes Found:</span>
-              <span className="text-typography-primary font-medium">
+              <span className="min-w-0 text-right font-medium text-typography-primary break-words">
                 {nodesFound}
               </span>
             </div>
-            <div className="flex justify-between gap-2 col-span-2">
+            <div className="flex items-start justify-between gap-4">
               <span className="text-typography-secondary">
                 Number of Layers:
               </span>
-              <span className="text-typography-primary font-medium">
+              <span className="min-w-0 text-right font-medium text-typography-primary break-words">
                 {layers.length}
               </span>
             </div>
@@ -80,9 +80,7 @@ function BFS(props: GraphAlgorithmResult<BFSOutputData>) {
         </div>
       }
       footer={
-        <div className="space-y-3">
-          <h3 className="font-semibold">What this means</h3>
-          <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
+        <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
             <li>
               Breadth-First Search (BFS) explores the graph layer by layer,
               starting from <span className="font-medium">{source}</span>,
@@ -108,7 +106,6 @@ function BFS(props: GraphAlgorithmResult<BFSOutputData>) {
               <span className="font-medium">{source}</span>.
             </li>
           </ul>
-        </div>
       }
     />
   );

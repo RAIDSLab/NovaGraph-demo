@@ -67,20 +67,25 @@ export default function OutputTabContent({
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-col gap-4">
-        <div className="min-h-0 flex-1 basis-0 overflow-hidden">
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="min-h-0 flex-1 overflow-hidden">
           <div className="h-full min-h-0">{outputContent}</div>
         </div>
-        <div className="flex flex-wrap-reverse justify-between gap-2">
-          <CodeOutputTabs enableOutput={enableOutput} showCodeTab={showCodeTab} />
-          {!!activeResponse && (
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={() => setIsFullScreen(true)}>
-                <Maximize2 /> Fullscreen
-              </Button>
-              <ExportDropdownButton activeResponse={activeResponse} />
-            </div>
-          )}
+        <div className="relative z-10 mt-2 shrink-0 border-t border-border bg-gradient-to-br from-neutral-low/20 to-neutral/20 pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CodeOutputTabs
+              enableOutput={enableOutput}
+              showCodeTab={showCodeTab}
+            />
+            {!!activeResponse && (
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" onClick={() => setIsFullScreen(true)}>
+                  <Maximize2 /> Fullscreen
+                </Button>
+                <ExportDropdownButton activeResponse={activeResponse} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

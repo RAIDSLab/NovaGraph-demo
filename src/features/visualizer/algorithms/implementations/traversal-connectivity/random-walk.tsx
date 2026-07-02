@@ -1,7 +1,12 @@
 import { useDynamicRowHeight, type RowComponentProps } from "react-window";
-import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
+import { AlgorithmOutputShell } from "../../components/algorithm-output-shell";
+import {
+  AlgorithmStat,
+  AlgorithmStatGrid,
+} from "../../components/algorithm-stat-grid";
+import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 
 import {
   createAlgorithmSelectInput,
@@ -9,7 +14,6 @@ import {
 } from "~/features/visualizer/inputs";
 import type { RandomWalkOutputData } from "~/igraph/algorithms/PathFinding/IgraphRandomWalk";
 
-// Todo : more extensive testing
 export const randomWalk = createGraphAlgorithm<RandomWalkOutputData>({
   title: "Random Walk",
   description:
@@ -52,45 +56,35 @@ function RandomWalk(props: GraphAlgorithmResult<RandomWalkOutputData>) {
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <p className="font-medium text-sm text-positive">
-        ✓ Random Walk completed successfully
-      </p>
+    <AlgorithmOutputShell
+      header={
+        <>
+          <p className="font-medium text-sm text-positive">
+            ✓ Random Walk completed successfully
+          </p>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        <div className="flex justify-between gap-2">
-          <span className="text-typography-secondary">Source:</span>
-          <span className="text-typography-primary font-medium">{source}</span>
-        </div>
-        <div className="flex justify-between gap-2">
-          <span className="text-typography-secondary">Number of Steps:</span>
-          <span className="text-typography-primary font-medium">{steps}</span>
-        </div>
-        <div className="flex justify-between gap-2 col-span-2">
-          <span className="text-typography-secondary">
-            Node With Max Frequency:
-          </span>
-          <span className="text-typography-primary font-medium">
-            {maxFrequencyNode} ({maxFrequency} times visited)
-          </span>
-        </div>
-      </div>
-
-      {/* Step By Step */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 border-t border-t-border pt-3 isolate">
-        <h3 className="shrink-0 font-semibold">Traversal Path</h3>
-        <VirtualizedListPanel
+          <AlgorithmStatGrid>
+            <AlgorithmStat label="Source:" value={source} />
+            <AlgorithmStat label="Number of Steps:" value={steps} />
+            <AlgorithmStat
+              label="Node With Max Frequency:"
+              value={`${maxFrequencyNode} (${maxFrequency} times visited)`}
+            />
+          </AlgorithmStatGrid>
+        </>
+      }
+      body={
+        <div className="flex min-h-0 flex-1 flex-col gap-2 border-t border-t-border pt-3 isolate">
+          <h3 className="shrink-0 font-semibold">Traversal Path</h3>
+          <VirtualizedListPanel
             rowComponent={RandomWalkPathRowComponent}
             rowCount={path.length}
             rowHeight={rowHeight}
             rowProps={{ cumulative, path }}
           />
-      </div>
-
-      {/* What this means */}
-      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
-        <h3 className="shrink-0 font-semibold">What this means</h3>
+        </div>
+      }
+      footer={
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
             A Random Walk simulates a step-by-step journey starting from{" "}
@@ -98,7 +92,7 @@ function RandomWalk(props: GraphAlgorithmResult<RandomWalkOutputData>) {
             is chosen randomly from its neighbors.
           </li>
           <li>
-            It’s useful for analyzing{" "}
+            It's useful for analyzing{" "}
             <span className="font-medium">
               network diffusion, influence spread, and centrality
             </span>
@@ -119,8 +113,8 @@ function RandomWalk(props: GraphAlgorithmResult<RandomWalkOutputData>) {
             a different path and different visitation frequencies.
           </li>
         </ul>
-      </div>
-    </div>
+      }
+    />
   );
 }
 
@@ -136,32 +130,28 @@ function RandomWalkPathRowComponent({
   const path = paths[index];
   return (
     <div key={index} style={style}>
-      <div className="border border-border rounded-md px-4 py-3 space-y-1 mb-2">
+      <div className="mb-2 space-y-1 rounded-md border border-border px-4 py-3">
         <div className="grid grid-cols-[36px_1fr_auto] gap-4">
-          {/* Step number */}
           <p className="text-sm font-semibold">{path.step}</p>
 
-          {/* Source to Target */}
           <div className="min-w-0 overflow-hidden">
-            <div className="flex items-center gap-2 h-full">
-              <span className="max-w-1/2 px-3 py-1.5 rounded-md bg-primary-low text-sm truncate whitespace-nowrap">
+            <div className="flex h-full items-center gap-2">
+              <span className="max-w-1/2 truncate whitespace-nowrap rounded-md bg-primary-low px-3 py-1.5 text-sm">
                 {path.from}
               </span>
               <span className="shrink-0">→</span>
-              <span className="max-w-1/2 px-3 py-1.5 rounded-md bg-primary-low text-sm truncate whitespace-nowrap">
+              <span className="max-w-1/2 truncate whitespace-nowrap rounded-md bg-primary-low px-3 py-1.5 text-sm">
                 {path.to}
               </span>
             </div>
           </div>
 
-          {/* Weight */}
           <div className="text-right">
             <p className="font-semibold">+{path.weight ?? 1}</p>
             <p className="text-xs text-typography-secondary">Step weight</p>
           </div>
         </div>
 
-        {/* Cumulative */}
         <p className="text-xs text-typography-secondary">
           Cumulative: {cumulative[index - 1] ?? 0} + {path.weight ?? 1} ={" "}
           <b>{cumulative[index]}</b>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useDynamicRowHeight, type RowComponentProps } from "react-window";
 import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
+import { WhatThisMeansSection } from "../../components/what-this-means-section";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 
@@ -44,38 +45,40 @@ function MinimalSpanningTree(
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <p className="font-medium text-sm text-positive">
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      <div className="shrink-0 space-y-2">
+        <p className="font-medium text-sm text-positive">
         ✓ Minimum Spanning Tree completed successfully
       </p>
 
       {/* Statistics */}
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        <div className="flex justify-between gap-2">
+      <div className="flex flex-col gap-1.5 text-sm">
+        <div className="flex items-start justify-between gap-4">
           <span className="text-typography-secondary">
             Number of Edges Selected:
           </span>
-          <span className="text-typography-primary font-medium">
+          <span className="min-w-0 text-right font-medium text-typography-primary break-words">
             {edges.length}
           </span>
         </div>
-        <div className="flex justify-between gap-2">
+        <div className="flex items-start justify-between gap-4">
           <span className="text-typography-secondary">
             Maximum Number of Edges:
           </span>
-          <span className="text-typography-primary font-medium">
+          <span className="min-w-0 text-right font-medium text-typography-primary break-words">
             {maxEdges}
           </span>
         </div>
-        <div className="flex justify-between gap-2 col-span-2">
+        <div className="flex items-start justify-between gap-4">
           <span className="text-typography-secondary">Total Weight:</span>
-          <span className="text-typography-primary font-medium">
+          <span className="min-w-0 text-right font-medium text-typography-primary break-words">
             {totalWeight ?? edges.length - 1}
           </span>
         </div>
       </div>
 
       {/* Edges */}
+      </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 border-t border-t-border pt-3 isolate">
         <div className="flex items-center justify-between">
           <h3 className="shrink-0 font-semibold">Minimum Spanning Tree Edges</h3>
@@ -96,9 +99,7 @@ function MinimalSpanningTree(
           />
       </div>
 
-      {/* What this means */}
-      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
-        <h3 className="shrink-0 font-semibold">What this means</h3>
+      <WhatThisMeansSection>
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
             The Minimum Spanning Tree connects{" "}
@@ -136,7 +137,7 @@ function MinimalSpanningTree(
             connected.
           </li>
         </ul>
-      </div>
+      </WhatThisMeansSection>
     </div>
   );
 }

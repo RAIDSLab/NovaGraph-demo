@@ -1,5 +1,6 @@
 import { useDynamicRowHeight, type RowComponentProps } from "react-window";
 import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
+import { WhatThisMeansSection } from "../../components/what-this-means-section";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 
@@ -47,7 +48,7 @@ function MissingEdgePrediction(
   });
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-2">
       <p className="font-medium text-sm text-positive">
         ✓ Missing Edge Prediction completed successfully
       </p>
@@ -73,9 +74,7 @@ function MissingEdgePrediction(
         )}
       </div>
 
-      {/* What this means */}
-      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
-        <h3 className="shrink-0 font-semibold">What this means</h3>
+      <WhatThisMeansSection>
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
             This fits a{" "}
@@ -115,7 +114,7 @@ function MissingEdgePrediction(
             adding them as candidate edges in downstream analyses.
           </li>
         </ul>
-      </div>
+      </WhatThisMeansSection>
     </div>
   );
 }

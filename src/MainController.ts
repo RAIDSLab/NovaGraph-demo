@@ -84,6 +84,7 @@ export type MainControllerDb = {
   listDatabases: () => Promise<string[]>;
   connectToDatabase: (dbName: string) => Promise<unknown>;
   getCurrentDatabaseName: () => Promise<string | null>;
+  isDatabasePersistent: (dbName: string) => boolean;
   saveDatabase: () => Promise<unknown>;
   loadDatabase: () => Promise<unknown>;
   importFromCSV: (
@@ -108,8 +109,17 @@ export type MainControllerDb = {
 
 class MainController {
   private _IgraphController: undefined | IgraphController;
-  private _inMemoryGraphManager: InMemoryGraphManager | null = null;
+  /** One manager per non-persistent database; survives graph switches until page refresh. */
+  private _inMemoryGraphManagers = new Map<string, InMemoryGraphManager>();
+  private _currentDatabaseName: string | null = null;
   private _currentDatabasePersistent: boolean = true;
+
+  private _getActiveInMemoryManager(): InMemoryGraphManager | null {
+    if (this._currentDatabasePersistent || !this._currentDatabaseName) {
+      return null;
+    }
+    return this._inMemoryGraphManagers.get(this._currentDatabaseName) ?? null;
+  }
 
   /** Bound in constructor — all methods use MainController as `this`. */
   db!: MainControllerDb;
@@ -196,6 +206,7 @@ class MainController {
       listDatabases: this._listDatabases.bind(this),
       connectToDatabase: this._connectToDatabase.bind(this),
       getCurrentDatabaseName: this._getCurrentDatabaseName.bind(this),
+      isDatabasePersistent: this._isDatabasePersistent.bind(this),
       saveDatabase: this._saveDatabase.bind(this),
       loadDatabase: this._loadDatabase.bind(this),
       importFromCSV: this._importFromCSV.bind(this),
@@ -243,8 +254,9 @@ class MainController {
   }
 
   private _getGraphDirection(): boolean {
-    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-      return this._inMemoryGraphManager.getGraphDirection();
+    const inMemory = this._getActiveInMemoryManager();
+    if (!this._currentDatabasePersistent && inMemory) {
+      return inMemory.getGraphDirection();
     }
     const metadata = kuzuController.getCurrentDatabaseMetadata?.();
     return metadata?.isDirected ?? true;
@@ -261,8 +273,9 @@ class MainController {
     }[] = [],
     relInfo: { from: string; to: string } | null = null
   ) {
-    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-      this._inMemoryGraphManager.createNodeSchema(
+    const inMemory = this._getActiveInMemoryManager();
+    if (!this._currentDatabasePersistent && inMemory) {
+      inMemory.createNodeSchema(
         tableName,
         primaryKey,
         primaryKeyType,
@@ -302,8 +315,9 @@ class MainController {
       { value: any; success?: boolean; message?: string }
     >
   ) {
-    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-      return this._inMemoryGraphManager.createNode(label, properties);
+    const inMemory = this._getActiveInMemoryManager();
+    if (!this._currentDatabasePersistent && inMemory) {
+      return inMemory.createNode(label, properties);
     }
     return kuzuController.createNode(label, properties);
   }
@@ -312,15 +326,17 @@ class MainController {
     node: GraphNode,
     values: Record<string, InputChangeResult<any>>
   ) {
-    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-      return this._inMemoryGraphManager.updateNode(node, values);
+    const inMemory = this._getActiveInMemoryManager();
+    if (!this._currentDatabasePersistent && inMemory) {
+      return inMemory.updateNode(node, values);
     }
     return kuzuController.updateNode(node, values);
   }
 
   private async _deleteNode(node: GraphNode) {
-    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-      return this._inMemoryGraphManager.deleteNode(node);
+    const inMemory = this._getActiveInMemoryManager();
+    if (!this._currentDatabasePersistent && inMemory) {
+      return inMemory.deleteNode(node);
     }
     return kuzuController.deleteNode(node);
   }
@@ -364,8 +380,9 @@ class MainController {
   }
 
   private async _snapshotGraphState() {
-    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-      const snapshot = this._inMemoryGraphManager.snapshotGraphState();
+    const inMemory = this._getActiveInMemoryManager();
+    if (!this._currentDatabasePersistent && inMemory) {
+      const snapshot = inMemory.snapshotGraphState();
       return {
         ...snapshot,
         directed: this._getGraphDirection(),
@@ -387,8 +404,9 @@ class MainController {
     )[],
     relationshipType?: "MANY_ONE" | "ONE_MANY" | "MANY_MANY" | "ONE_ONE"
   ) {
-    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-      this._inMemoryGraphManager.createEdgeSchema(
+    const inMemory = this._getActiveInMemoryManager();
+    if (!this._currentDatabasePersistent && inMemory) {
+      inMemory.createEdgeSchema(
         tableName,
         tablePairs,
         properties,
@@ -411,8 +429,9 @@ class MainController {
     edgeTable: EdgeSchema,
     attributes?: Record<string, InputChangeResult<any>>
   ) {
-    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-      return this._inMemoryGraphManager.createEdge(
+    const inMemory = this._getActiveInMemoryManager();
+    if (!this._currentDatabasePersistent && inMemory) {
+      return inMemory.createEdge(
         node1,
         node2,
         edgeTable,
@@ -434,8 +453,9 @@ class MainController {
     isDirected: boolean,
     edgeTableName: string
   ) {
-    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-      return this._inMemoryGraphManager.deleteEdge(
+    const inMemory = this._getActiveInMemoryManager();
+    if (!this._currentDatabasePersistent && inMemory) {
+      return inMemory.deleteEdge(
         node1,
         node2,
         edgeTableName
@@ -450,8 +470,9 @@ class MainController {
     edgeTableName: string,
     values: Record<string, InputChangeResult<any>>
   ) {
-    if (!this._currentDatabasePersistent && this._inMemoryGraphManager) {
-      return this._inMemoryGraphManager.updateEdge(
+    const inMemory = this._getActiveInMemoryManager();
+    if (!this._currentDatabasePersistent && inMemory) {
+      return inMemory.updateEdge(
         node1,
         node2,
         edgeTableName,
@@ -483,9 +504,11 @@ class MainController {
     this._currentDatabasePersistent = persistent;
 
     if (!persistent) {
-      this._inMemoryGraphManager = new InMemoryGraphManager(
-        metadata?.isDirected ?? true
+      this._inMemoryGraphManagers.set(
+        dbName,
+        new InMemoryGraphManager(metadata?.isDirected ?? true)
       );
+      this._currentDatabaseName = dbName;
       if (this._IgraphController) {
         await this._IgraphController.dispose();
         this._IgraphController = this._createIgraphController();
@@ -498,21 +521,49 @@ class MainController {
   }
 
   private async _deleteDatabase(dbName: string) {
+    if (this._inMemoryGraphManagers.has(dbName)) {
+      this._inMemoryGraphManagers.delete(dbName);
+      if (this._currentDatabaseName === dbName) {
+        this._currentDatabaseName = null;
+        this._currentDatabasePersistent = true;
+      }
+      return undefined;
+    }
     return kuzuController.deleteDatabase(dbName);
   }
 
   private async _listDatabases() {
-    return kuzuController.listDatabases();
+    const kuzuDatabases = await kuzuController.listDatabases();
+    const inMemoryDatabases = Array.from(this._inMemoryGraphManagers.keys());
+    return [...new Set([...kuzuDatabases, ...inMemoryDatabases])];
   }
 
   private async _connectToDatabase(dbName: string) {
+    if (this._inMemoryGraphManagers.has(dbName)) {
+      this._currentDatabaseName = dbName;
+      this._currentDatabasePersistent = false;
+      return undefined;
+    }
+
+    this._currentDatabaseName = dbName;
     this._currentDatabasePersistent = true;
-    this._inMemoryGraphManager = null;
     return kuzuController.connectToDatabase(dbName);
   }
 
   private async _getCurrentDatabaseName() {
-    return kuzuController.getCurrentDatabaseName();
+    if (!this._currentDatabasePersistent && this._currentDatabaseName) {
+      return this._currentDatabaseName;
+    }
+    const kuzuName = await kuzuController.getCurrentDatabaseName();
+    if (kuzuName) {
+      this._currentDatabaseName = kuzuName;
+      this._currentDatabasePersistent = true;
+    }
+    return kuzuName;
+  }
+
+  private _isDatabasePersistent(dbName: string): boolean {
+    return !this._inMemoryGraphManagers.has(dbName);
   }
 
   private async _saveDatabase() {
@@ -532,8 +583,12 @@ class MainController {
     isDirected: boolean = true,
     persistent: boolean = true
   ) {
-    if (!persistent && this._inMemoryGraphManager) {
-      const snapshot = await this._inMemoryGraphManager.importFromCSV(
+    if (!persistent) {
+      const manager = this._inMemoryGraphManagers.get(databaseName);
+      if (!manager) {
+        throw new Error(`In-memory database '${databaseName}' does not exist`);
+      }
+      const snapshot = await manager.importFromCSV(
         nodesText,
         edgesText,
         nodeTableName,
@@ -570,8 +625,12 @@ class MainController {
     isDirected: boolean = true,
     persistent: boolean = true
   ) {
-    if (!persistent && this._inMemoryGraphManager) {
-      const snapshot = await this._inMemoryGraphManager.importFromJSON(
+    if (!persistent) {
+      const manager = this._inMemoryGraphManagers.get(databaseName);
+      if (!manager) {
+        throw new Error(`In-memory database '${databaseName}' does not exist`);
+      }
+      const snapshot = await manager.importFromJSON(
         nodesText,
         edgesText,
         nodeTableName,

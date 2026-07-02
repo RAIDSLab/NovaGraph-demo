@@ -2,6 +2,7 @@ import { Grid, type CellComponentProps } from "react-window";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 import { FlexibleScrollPanel } from "../../components/flexible-scroll-panel";
+import { WhatThisMeansSection } from "../../components/what-this-means-section";
 
 import { createAlgorithmSelectInput } from "~/features/visualizer/inputs";
 import type { JaccardSimilarityOutputData } from "~/igraph/algorithms/Misc/IgraphJaccardSimilarity";
@@ -40,34 +41,36 @@ export const jaccardSimilarity =
 function Jaccard(props: GraphAlgorithmResult<JaccardSimilarityOutputData>) {
   const { nodes, similarityMatrix, maxSimilarity } = props.data;
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <p className="font-medium text-sm text-positive">
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      <div className="shrink-0 space-y-2">
+        <p className="font-medium text-sm text-positive">
         ✓ Jaccard Similarity completed successfully
       </p>
 
       {/* Statistics */}
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        <div className="flex justify-between gap-2">
+      <div className="flex flex-col gap-1.5 text-sm">
+        <div className="flex items-start justify-between gap-4">
           <span className="text-typography-secondary">Source:</span>
-          <span className="text-typography-primary font-medium">
+          <span className="min-w-0 text-right font-medium text-typography-primary break-words">
             {maxSimilarity.node1}
           </span>
         </div>
-        <div className="flex justify-between gap-2">
+        <div className="flex items-start justify-between gap-4">
           <span className="text-typography-secondary">Target:</span>
-          <span className="text-typography-primary font-medium">
+          <span className="min-w-0 text-right font-medium text-typography-primary break-words">
             {maxSimilarity.node2}
           </span>
         </div>
-        <div className="flex justify-between gap-2 col-span-2">
+        <div className="flex items-start justify-between gap-4">
           <span className="text-typography-secondary">Max Similarity:</span>
-          <span className="text-typography-primary font-medium">
+          <span className="min-w-0 text-right font-medium text-typography-primary break-words">
             {maxSimilarity.similarity}
           </span>
         </div>
       </div>
 
       {/* Similarity Matrix */}
+      </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 border-t border-t-border pt-3 isolate">
         <h3 className="shrink-0 font-semibold">Similarity Matrix</h3>
         <FlexibleScrollPanel>
@@ -82,9 +85,7 @@ function Jaccard(props: GraphAlgorithmResult<JaccardSimilarityOutputData>) {
         </FlexibleScrollPanel>
       </div>
 
-      {/* What this means */}
-      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
-        <h3 className="font-semibold">What this means</h3>
+      <WhatThisMeansSection>
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
             Jaccard similarity measures how similar two nodes’ neighborhoods
@@ -123,7 +124,7 @@ function Jaccard(props: GraphAlgorithmResult<JaccardSimilarityOutputData>) {
             they share many neighbors (ratio effect).
           </li>
         </ul>
-      </div>
+      </WhatThisMeansSection>
     </div>
   );
 }

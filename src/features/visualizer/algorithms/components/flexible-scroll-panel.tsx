@@ -12,7 +12,7 @@ export function FlexibleScrollPanel({
   return (
     <div
       className={cn(
-        "min-h-32 flex-1 overflow-auto rounded-md border border-border",
+        "min-h-0 flex-1 overflow-auto rounded-md border border-border",
         className
       )}
     >

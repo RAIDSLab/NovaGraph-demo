@@ -50,24 +50,24 @@ function DFS(props: GraphAlgorithmResult<DFSOutputData>) {
             ✓ DFS completed successfully
           </p>
 
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="flex justify-between gap-2">
+          <div className="flex flex-col gap-1.5 text-sm">
+            <div className="flex items-start justify-between gap-4">
               <span className="text-typography-secondary">Source:</span>
-              <span className="text-typography-primary font-medium">
+              <span className="min-w-0 text-right font-medium text-typography-primary break-words">
                 {source}
               </span>
             </div>
-            <div className="flex justify-between gap-2">
+            <div className="flex items-start justify-between gap-4">
               <span className="text-typography-secondary">Nodes Found:</span>
-              <span className="text-typography-primary font-medium">
+              <span className="min-w-0 text-right font-medium text-typography-primary break-words">
                 {nodesFound}
               </span>
             </div>
-            <div className="flex justify-between gap-2 col-span-2">
+            <div className="flex items-start justify-between gap-4">
               <span className="text-typography-secondary">
                 Number of Subtrees:
               </span>
-              <span className="text-typography-primary font-medium">
+              <span className="min-w-0 text-right font-medium text-typography-primary break-words">
                 {subtrees.length}
               </span>
             </div>
@@ -86,9 +86,7 @@ function DFS(props: GraphAlgorithmResult<DFSOutputData>) {
         </div>
       }
       footer={
-        <div className="space-y-3">
-          <h3 className="font-semibold">What this means</h3>
-          <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
+        <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
             <li>
               Depth-First Search (DFS) explores as deep as possible along each
               path from <span className="font-medium">{source}</span> before
@@ -118,7 +116,6 @@ function DFS(props: GraphAlgorithmResult<DFSOutputData>) {
               exploration.
             </li>
           </ul>
-        </div>
       }
     />
   );

@@ -1,4 +1,5 @@
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
+import { WhatThisMeansSection } from "../../components/what-this-means-section";
 
 import { cn } from "~/lib/utils";
 import { createAlgorithmSelectInput } from "~/features/visualizer/inputs";
@@ -87,15 +88,13 @@ function CheckAdjacency(
         </div>
       </div>
 
-      {/* What this means */}
-      <div className="space-y-3 pt-3 border-t border-t-border">
-        <h3 className="font-semibold">What this means</h3>
+      <WhatThisMeansSection>
         <p className="text-typography-secondary text-sm">
           {adjacent
             ? `✓ You can travel directly from ${source} to ${target} in one step`
             : `✗ You can't travel directly from ${source} to ${target} in one step`}
         </p>
-      </div>
+      </WhatThisMeansSection>
     </div>
   );
 }

@@ -189,7 +189,7 @@ export default class VisualizerStore {
       if (currentDatabaseName) {
         this.database = {
           name: currentDatabaseName,
-          persistent: true, // Default to persistent for existing databases
+          persistent: this.controller.db.isDatabasePersistent(currentDatabaseName),
           graph,
         };
       } else {
@@ -307,7 +307,7 @@ export default class VisualizerStore {
       // Update current database
       this.database = {
         name,
-        persistent: true, // Assume persistent for existing databases
+        persistent: this.controller.db.isDatabasePersistent(name),
         graph,
       };
     });
@@ -344,7 +344,7 @@ export default class VisualizerStore {
         if (currentDatabaseName) {
           this.database = {
             name: currentDatabaseName,
-            persistent: true, // Assume persistent for existing databases
+            persistent: this.controller.db.isDatabasePersistent(currentDatabaseName),
             graph,
           };
         } else {

@@ -1,7 +1,8 @@
 import { useDynamicRowHeight, type RowComponentProps } from "react-window";
-import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
+import { AlgorithmOutputShell } from "../../components/algorithm-output-shell";
+import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 
 import type { PageRankOutputData } from "~/igraph/algorithms/Centrality/IgraphPageRank";
 import { createNumberInput } from "~/features/visualizer/inputs";
@@ -39,59 +40,59 @@ function PageRank(props: GraphAlgorithmResult<PageRankOutputData>) {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <p className="font-medium text-sm text-positive">
-        ✓ Page Rank completed successfully
-      </p>
+    <AlgorithmOutputShell
+      header={
+        <>
+          <p className="font-medium text-sm text-positive">
+            ✓ Page Rank completed successfully
+          </p>
 
-      {/* Statistics */}
-      {centralities.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="flex justify-between gap-2">
-            <span className="text-typography-secondary">
-              Most Central Node:
-            </span>
-            <span className="text-typography-primary font-medium">
-              {sortedCentralities[0].node}
-            </span>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-typography-secondary">
-              Max Centrality Score:
-            </span>
-            <span className="text-typography-primary font-medium">
-              {sortedCentralities[0].centrality.toFixed(2)}
-            </span>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-typography-secondary">Damping:</span>
-            <span className="text-typography-primary font-medium">
-              {damping}
-            </span>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-typography-secondary">Nodes Analyzed:</span>
-            <span className="text-typography-primary font-medium">
-              {sortedCentralities.length}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Centralities */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 border-t border-t-border pt-3 isolate">
-        <h3 className="shrink-0 font-semibold">Centralities</h3>
-        <VirtualizedListPanel
+          {centralities.length > 0 && (
+            <div className="flex flex-col gap-1.5 text-sm">
+              <div className="flex items-start justify-between gap-4">
+                <span className="text-typography-secondary">
+                  Most Central Node:
+                </span>
+                <span className="min-w-0 text-right font-medium text-typography-primary break-words">
+                  {sortedCentralities[0].node}
+                </span>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <span className="text-typography-secondary">
+                  Max Centrality Score:
+                </span>
+                <span className="min-w-0 text-right font-medium text-typography-primary break-words">
+                  {sortedCentralities[0].centrality.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <span className="text-typography-secondary">Damping:</span>
+                <span className="min-w-0 text-right font-medium text-typography-primary break-words">
+                  {damping}
+                </span>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <span className="text-typography-secondary">Nodes Analyzed:</span>
+                <span className="min-w-0 text-right font-medium text-typography-primary break-words">
+                  {sortedCentralities.length}
+                </span>
+              </div>
+            </div>
+          )}
+        </>
+      }
+      body={
+        <div className="flex min-h-0 flex-1 flex-col gap-2 border-t border-t-border pt-3 isolate">
+          <h3 className="shrink-0 font-semibold">Centralities</h3>
+          <VirtualizedListPanel
             rowComponent={PageRankRowComponent}
-            rowCount={sortedCentralities.length + 1} // Top header row
+            rowCount={sortedCentralities.length + 1}
             rowHeight={rowHeight}
             rowProps={{ centralities: sortedCentralities }}
           />
-      </div>
-
-      {/* What this means */}
-      <div className="shrink-0 max-h-28 space-y-3 overflow-y-auto border-t border-t-border pt-3">
-        <h3 className="shrink-0 font-semibold">What this means</h3>
+        </div>
+      }
+      footer={
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
             PageRank models a random surfer who follows links with probability{" "}
@@ -123,8 +124,8 @@ function PageRank(props: GraphAlgorithmResult<PageRankOutputData>) {
             in citation, web, and influence graphs.
           </li>
         </ul>
-      </div>
-    </div>
+      }
+    />
   );
 }
 
@@ -135,7 +136,6 @@ function PageRankRowComponent({
 }: RowComponentProps<{
   centralities: PageRankOutputData["centralities"];
 }>) {
-  // Top header row
   if (index === 0) {
     return (
       <div

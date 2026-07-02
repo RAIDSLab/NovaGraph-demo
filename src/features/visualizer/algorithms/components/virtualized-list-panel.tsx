@@ -3,8 +3,7 @@ import { List, type ListProps } from "react-window";
 
 import { cn } from "~/lib/utils";
 
-const DEFAULT_LIST_HEIGHT_PX = 320;
-const MIN_LIST_HEIGHT_PX = 128;
+const DEFAULT_LIST_HEIGHT_PX = 200;
 
 export function VirtualizedListPanel<RowProps extends object>(
   props: ListProps<RowProps> & { containerClassName?: string }
@@ -20,7 +19,7 @@ export function VirtualizedListPanel<RowProps extends object>(
     const updateHeight = () => {
       const nextHeight = element.clientHeight;
       if (nextHeight > 0) {
-        setHeight(Math.max(nextHeight, MIN_LIST_HEIGHT_PX));
+        setHeight(nextHeight);
       }
     };
 
@@ -34,7 +33,7 @@ export function VirtualizedListPanel<RowProps extends object>(
     <div
       ref={containerRef}
       className={cn(
-        "min-h-32 flex-1 overflow-hidden rounded-md border border-border",
+        "min-h-0 flex-1 overflow-hidden rounded-md border border-border",
         containerClassName
       )}
     >
