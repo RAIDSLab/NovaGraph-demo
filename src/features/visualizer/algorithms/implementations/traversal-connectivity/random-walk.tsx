@@ -6,12 +6,14 @@ import {
   AlgorithmStat,
   AlgorithmStatGrid,
 } from "../../components/algorithm-stat-grid";
+import { ClickableNodeLabel } from "../../components/clickable-node-label";
 import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 
 import {
   createAlgorithmSelectInput,
   createNumberInput,
 } from "~/features/visualizer/inputs";
+import { randomWalkSliceSteps } from "~/features/visualizer/layer-slice";
 import type { RandomWalkOutputData } from "~/igraph/algorithms/PathFinding/IgraphRandomWalk";
 
 export const randomWalk = createGraphAlgorithm<RandomWalkOutputData>({
@@ -40,6 +42,7 @@ export const randomWalk = createGraphAlgorithm<RandomWalkOutputData>({
     return await igraphController.randomWalk(arg1, arg2);
   },
   output: (props) => <RandomWalk {...props} />,
+  buildSliceSteps: randomWalkSliceSteps,
 });
 
 function RandomWalk(props: GraphAlgorithmResult<RandomWalkOutputData>) {
@@ -136,13 +139,17 @@ function RandomWalkPathRowComponent({
 
           <div className="min-w-0 overflow-hidden">
             <div className="flex h-full items-center gap-2">
-              <span className="max-w-1/2 truncate whitespace-nowrap rounded-md bg-primary-low px-3 py-1.5 text-sm">
-                {path.from}
-              </span>
+              <ClickableNodeLabel
+                label={path.from}
+                variant="chip"
+                className="max-w-1/2 text-sm truncate whitespace-nowrap"
+              />
               <span className="shrink-0">→</span>
-              <span className="max-w-1/2 truncate whitespace-nowrap rounded-md bg-primary-low px-3 py-1.5 text-sm">
-                {path.to}
-              </span>
+              <ClickableNodeLabel
+                label={path.to}
+                variant="chip"
+                className="max-w-1/2 text-sm truncate whitespace-nowrap"
+              />
             </div>
           </div>
 

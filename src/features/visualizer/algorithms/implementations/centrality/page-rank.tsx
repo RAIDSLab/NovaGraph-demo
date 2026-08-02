@@ -1,8 +1,9 @@
-import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { useMemo } from "react";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 import { AlgorithmOutputShell } from "../../components/algorithm-output-shell";
-import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
+import { ClickableNodeLabel } from "../../components/clickable-node-label";
+import { NodeScoreResultsPanel } from "../../components/node-score-results-panel";
 
 import type { PageRankOutputData } from "~/igraph/algorithms/Centrality/IgraphPageRank";
 import { createNumberInput } from "~/features/visualizer/inputs";
@@ -31,13 +32,14 @@ export const pageRank = createGraphAlgorithm<PageRankOutputData>({
 function PageRank(props: GraphAlgorithmResult<PageRankOutputData>) {
   const { damping, centralities } = props.data;
 
-  const rowHeight = useDynamicRowHeight({
-    defaultRowHeight: 48,
-  });
-
-  const sortedCentralities = centralities.sort(
-    (c1, c2) => c2.centrality - c1.centrality
+  const items = useMemo(
+    () => centralities.map((c) => ({ node: c.node, score: c.centrality })),
+    [centralities]
   );
+
+  const top = items[0]
+    ? items.reduce((best, item) => (item.score > best.score ? item : best))
+    : null;
 
   return (
     <AlgorithmOutputShell
@@ -47,22 +49,23 @@ function PageRank(props: GraphAlgorithmResult<PageRankOutputData>) {
             ✓ Page Rank completed successfully
           </p>
 
-          {centralities.length > 0 && (
+          {top && (
             <div className="flex flex-col gap-1.5 text-sm">
               <div className="flex items-start justify-between gap-4">
                 <span className="text-typography-secondary">
                   Most Central Node:
                 </span>
-                <span className="min-w-0 text-right font-medium text-typography-primary break-words">
-                  {sortedCentralities[0].node}
-                </span>
+                <ClickableNodeLabel
+                  label={top.node}
+                  className="min-w-0 text-right font-medium break-words whitespace-normal"
+                />
               </div>
               <div className="flex items-start justify-between gap-4">
                 <span className="text-typography-secondary">
                   Max Centrality Score:
                 </span>
                 <span className="min-w-0 text-right font-medium text-typography-primary break-words">
-                  {sortedCentralities[0].centrality.toFixed(2)}
+                  {top.score.toFixed(2)}
                 </span>
               </div>
               <div className="flex items-start justify-between gap-4">
@@ -74,7 +77,7 @@ function PageRank(props: GraphAlgorithmResult<PageRankOutputData>) {
               <div className="flex items-start justify-between gap-4">
                 <span className="text-typography-secondary">Nodes Analyzed:</span>
                 <span className="min-w-0 text-right font-medium text-typography-primary break-words">
-                  {sortedCentralities.length}
+                  {items.length}
                 </span>
               </div>
             </div>
@@ -82,15 +85,11 @@ function PageRank(props: GraphAlgorithmResult<PageRankOutputData>) {
         </>
       }
       body={
-        <div className="flex min-h-0 flex-1 flex-col gap-2 border-t border-t-border pt-3 isolate">
-          <h3 className="shrink-0 font-semibold">Centralities</h3>
-          <VirtualizedListPanel
-            rowComponent={PageRankRowComponent}
-            rowCount={sortedCentralities.length + 1}
-            rowHeight={rowHeight}
-            rowProps={{ centralities: sortedCentralities }}
-          />
-        </div>
+        <NodeScoreResultsPanel
+          items={items}
+          title="Centralities"
+          scoreHeader="Centrality"
+        />
       }
       footer={
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
@@ -101,14 +100,13 @@ function PageRank(props: GraphAlgorithmResult<PageRankOutputData>) {
             <span className="font-medium">high-quality incoming links</span>{" "}
             score higher.
           </li>
-          <li>
-            <span className="font-medium">{sortedCentralities[0]?.node}</span>{" "}
-            ranks highest with score{" "}
-            <span className="font-medium">
-              {sortedCentralities[0]?.centrality.toFixed(2)}
-            </span>
-            .
-          </li>
+          {top && (
+            <li>
+              <ClickableNodeLabel label={top.node} variant="inline" /> ranks
+              highest with score{" "}
+              <span className="font-medium">{top.score.toFixed(2)}</span>.
+            </li>
+          )}
           <li>
             The <span className="font-medium">damping factor</span> controls how
             often the surfer teleports (typical ~0.85); lower values spread
@@ -126,42 +124,5 @@ function PageRank(props: GraphAlgorithmResult<PageRankOutputData>) {
         </ul>
       }
     />
-  );
-}
-
-function PageRankRowComponent({
-  index,
-  style,
-  centralities,
-}: RowComponentProps<{
-  centralities: PageRankOutputData["centralities"];
-}>) {
-  if (index === 0) {
-    return (
-      <div
-        key={index}
-        className="bg-tabdock grid grid-flow-col auto-cols-fr"
-        style={style}
-      >
-        <span className="font-semibold text-sm px-3 py-1.5">Rank</span>
-        <span className="font-semibold text-sm px-3 py-1.5">Node</span>
-        <span className="font-semibold text-sm px-3 py-1.5">Centrality</span>
-      </div>
-    );
-  }
-
-  const centrality = centralities[index - 1];
-  return (
-    <div
-      key={index}
-      className="grid grid-flow-col auto-cols-fr not-odd:bg-neutral-low/50"
-      style={style}
-    >
-      <span className="px-3 py-1.5">{index}</span>
-      <span className="px-3 py-1.5 truncate">{centrality.node}</span>
-      <span className="px-3 py-1.5 truncate">
-        {centrality.centrality.toFixed(2)}
-      </span>
-    </div>
   );
 }

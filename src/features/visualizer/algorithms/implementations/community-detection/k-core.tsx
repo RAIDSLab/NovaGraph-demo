@@ -1,4 +1,5 @@
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
+import { ClickableNodeLabel } from "../../components/clickable-node-label";
 import { FlexibleScrollPanel } from "../../components/flexible-scroll-panel";
 import { WhatThisMeansSection } from "../../components/what-this-means-section";
 
@@ -65,12 +66,12 @@ function KCore(props: GraphAlgorithmResult<KCoreOutputData>) {
           {cores.length > 0 ? (
             <div className="flex flex-wrap gap-2 p-1">
               {cores.map((core, i) => (
-                <span
+                <ClickableNodeLabel
                   key={`${i}-${core}`}
-                  className="px-3 py-1.5 rounded-md bg-primary-low max-w-96 truncate whitespace-nowrap"
-                >
-                  {core}
-                </span>
+                  label={core}
+                  variant="chip"
+                  className="max-w-96 truncate whitespace-nowrap"
+                />
               ))}
             </div>
           ) : (

@@ -1,5 +1,6 @@
-import { useDynamicRowHeight, type RowComponentProps } from "react-window";
-import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
+import { useMemo } from "react";
+
+import { NodeScoreResultsPanel } from "../../components/node-score-results-panel";
 import { WhatThisMeansSection } from "../../components/what-this-means-section";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
@@ -23,45 +24,40 @@ function LocalClusteringCoefficient(
 ) {
   const { global_coefficient, coefficients } = props.data;
 
-  const rowHeight = useDynamicRowHeight({
-    defaultRowHeight: 48,
-  });
+  const items = useMemo(
+    () => coefficients.map((c) => ({ node: c.node, score: c.value })),
+    [coefficients]
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
       <div className="shrink-0 space-y-2">
         <p className="font-medium text-sm text-positive">
-        ✓ Local Clustering Coefficient completed successfully
-      </p>
+          ✓ Local Clustering Coefficient completed successfully
+        </p>
 
-      {/* Statistics */}
-      <div className="flex flex-col gap-1.5 text-sm">
-        <div className="flex items-start justify-between gap-4">
-          <span className="text-typography-secondary">Global Coefficient:</span>
-          <span className="min-w-0 text-right font-medium text-typography-primary break-words">
-            {global_coefficient.toFixed(2)}
-          </span>
-        </div>
-        <div className="flex items-start justify-between gap-4">
-          <span className="text-typography-secondary">Nodes Analyzed:</span>
-          <span className="min-w-0 text-right font-medium text-typography-primary break-words">
-            {coefficients.length}
-          </span>
+        <div className="flex flex-col gap-1.5 text-sm">
+          <div className="flex items-start justify-between gap-4">
+            <span className="text-typography-secondary">Global Coefficient:</span>
+            <span className="min-w-0 text-right font-medium text-typography-primary break-words">
+              {global_coefficient.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex items-start justify-between gap-4">
+            <span className="text-typography-secondary">Nodes Analyzed:</span>
+            <span className="min-w-0 text-right font-medium text-typography-primary break-words">
+              {items.length}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Coefficients */}
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 border-t border-t-border pt-3 isolate">
-        <h3 className="shrink-0 font-semibold">Coefficients</h3>
-        {/* Rows */}
-        <VirtualizedListPanel
-            rowComponent={LocalClusteringCoefficientRowComponent}
-            rowCount={coefficients.length + 1} // Top header row
-            rowHeight={rowHeight}
-            rowProps={{ coefficients }}
-          />
-      </div>
+      <NodeScoreResultsPanel
+        items={items}
+        title="Coefficients"
+        scoreHeader="Coefficient"
+        showRank={false}
+      />
 
       <WhatThisMeansSection>
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
@@ -89,37 +85,6 @@ function LocalClusteringCoefficient(
           </li>
         </ul>
       </WhatThisMeansSection>
-    </div>
-  );
-}
-
-function LocalClusteringCoefficientRowComponent({
-  index,
-  style,
-  coefficients,
-}: RowComponentProps<{
-  coefficients: LocalClusteringCoefficientOutputData["coefficients"];
-}>) {
-  // Top header row
-  if (index === 0) {
-    return (
-      <div key={index} className="grid grid-cols-2 bg-tabdock" style={style}>
-        <span className="font-semibold text-sm px-3 py-1.5">Node</span>
-        <span className="font-semibold text-sm px-3 py-1.5">Coefficient</span>
-      </div>
-    );
-  }
-
-  const coefficient = coefficients[index - 1];
-  return (
-    <div
-      key={index}
-      className="grid grid-cols-2 not-odd:bg-neutral-low/50"
-      style={style}
-    >
-      {/* Layer Index */}
-      <span className="px-3 py-1.5">{coefficient.node}</span>
-      <span className="px-3 py-1.5">{coefficient.value.toFixed(2)}</span>
     </div>
   );
 }

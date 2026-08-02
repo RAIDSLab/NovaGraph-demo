@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { InputType } from "../../inputs";
+import type { BuildSliceStepsFn } from "../../layer-slice";
 
 import type { IgraphController } from "~/igraph/IgraphController";
 import type { BaseGraphAlgorithmResult as IgraphBaseGraphAlgorithmResult } from "~/igraph/types";
@@ -26,6 +27,9 @@ export interface BaseGraphAlgorithm<TResult = BaseGraphAlgorithmResult> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   wasmFunction: (controller: IgraphController, args: any[]) => Promise<TResult>;
   output: BivariantHandler<TResult>;
+  /** Optional post-run layer-slice builder (display labels → Kuzu IDs via ctx). */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  buildSliceSteps?: BuildSliceStepsFn<any>;
 }
 
 /** TData describes the format/structure of the output in addition from
@@ -46,6 +50,7 @@ export function createGraphAlgorithm<TData>(config: {
     args: any[]
   ) => Promise<Omit<GraphAlgorithmResult<TData>, "type">>;
   output: (props: GraphAlgorithmResult<TData>) => ReactNode;
+  buildSliceSteps?: BuildSliceStepsFn<TData>;
 }): GraphAlgorithm<TData> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const algorithmWasmFn = async (controller: IgraphController, args: any[]) => {

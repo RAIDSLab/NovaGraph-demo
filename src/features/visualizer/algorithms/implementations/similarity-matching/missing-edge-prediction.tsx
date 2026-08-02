@@ -1,4 +1,5 @@
 import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { ClickableNodeLabel } from "../../components/clickable-node-label";
 import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 import { WhatThisMeansSection } from "../../components/what-this-means-section";
 
@@ -146,8 +147,14 @@ function MissingEdgePredictionRowComponent({
       style={style}
     >
       <span className="px-3 py-1.5 truncate">{index}</span>
-      <span className="px-3 py-1.5 truncate">{predictedEdge.from}</span>
-      <span className="px-3 py-1.5 truncate">{predictedEdge.to}</span>
+      <ClickableNodeLabel
+        label={predictedEdge.from}
+        className="px-3 py-1.5 truncate"
+      />
+      <ClickableNodeLabel
+        label={predictedEdge.to}
+        className="px-3 py-1.5 truncate"
+      />
       <span className="px-3 py-1.5 truncate">{predictedEdge.probability}</span>
     </div>
   );

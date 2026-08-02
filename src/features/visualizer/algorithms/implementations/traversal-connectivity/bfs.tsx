@@ -5,9 +5,11 @@ import {
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 import { AlgorithmOutputShell } from "../../components/algorithm-output-shell";
+import { ClickableNodeLabel } from "../../components/clickable-node-label";
 import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 
 import { createAlgorithmSelectInput } from "~/features/visualizer/inputs";
+import { bfsSliceSteps } from "~/features/visualizer/layer-slice";
 import type { BFSOutputData } from "~/igraph/algorithms/PathFinding/IgraphBFS";
 
 export const bfs = createGraphAlgorithm<BFSOutputData>({
@@ -27,6 +29,7 @@ export const bfs = createGraphAlgorithm<BFSOutputData>({
     return await igraphController.bfs(arg1);
   },
   output: (props) => <BFS {...props} />,
+  buildSliceSteps: bfsSliceSteps,
 });
 
 function BFS(props: GraphAlgorithmResult<BFSOutputData>) {
@@ -136,13 +139,12 @@ function BFSLayerRowComponent({
     >
       <span className="font-semibold px-3 py-1.5">{layer.index}</span>
       <span className="col-span-2 flex flex-wrap gap-1 font-semibold px-3 py-1.5">
-        {layer.layer.map((layer, i) => (
-          <span
-            key={`${index}-${i}-${layer}`}
-            className="px-3 py-1.5 rounded-md bg-primary-low"
-          >
-            {layer}
-          </span>
+        {layer.layer.map((nodeLabel, i) => (
+          <ClickableNodeLabel
+            key={`${index}-${i}-${nodeLabel}`}
+            label={nodeLabel}
+            variant="chip"
+          />
         ))}
       </span>
     </div>

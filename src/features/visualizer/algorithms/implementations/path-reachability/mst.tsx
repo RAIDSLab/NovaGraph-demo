@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { ClickableNodeLabel } from "../../components/clickable-node-label";
 import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 import { WhatThisMeansSection } from "../../components/what-this-means-section";
 
@@ -10,6 +11,7 @@ import InputComponent, {
   createSwitchInput,
 } from "~/features/visualizer/inputs";
 import type { MinimalSpanningTreeOutputData } from "~/igraph/algorithms/PathFinding/IgraphMST";
+import { mstSliceSteps } from "~/features/visualizer/layer-slice";
 
 export const mst = createGraphAlgorithm<MinimalSpanningTreeOutputData>({
   title: "Minimum Spanning Tree",
@@ -20,6 +22,7 @@ export const mst = createGraphAlgorithm<MinimalSpanningTreeOutputData>({
     return await igraphController.minimumSpanningTree();
   },
   output: (props) => <MinimalSpanningTree {...props} />,
+  buildSliceSteps: mstSliceSteps,
 });
 
 function MinimalSpanningTree(
@@ -177,8 +180,11 @@ function MSTEdgeRowComponent({
       style={style}
     >
       <span className="px-3 py-1.5">{edge.num}</span>
-      <span className="px-3 py-1.5 truncate">{edge.from}</span>
-      <span className="px-3 py-1.5 truncate">{edge.to}</span>
+      <ClickableNodeLabel
+        label={edge.from}
+        className="px-3 py-1.5 truncate"
+      />
+      <ClickableNodeLabel label={edge.to} className="px-3 py-1.5 truncate" />
       {showWeight && (
         <span className="px-3 py-1.5">{edge.weight?.toFixed(2)}</span>
       )}

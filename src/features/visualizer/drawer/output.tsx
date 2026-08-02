@@ -1,10 +1,14 @@
 import { useMemo, useState } from "react";
-import { Maximize2 } from "lucide-react";
+import { Layers, Maximize2 } from "lucide-react";
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog";
+import { observer } from "mobx-react-lite";
+import { toast } from "sonner";
 
 import type { BaseGraphAlgorithm } from "../algorithms/implementations";
 import { QueryOutput } from "../queries";
 import ExportDropdownButton from "../export/export-dropdown-button";
+import { useStore } from "../hooks/use-store";
+import { buildLabelToIdMap } from "../layer-slice";
 import {
   isAlgorithmVisualizationResult,
   isQueryVisualizationResult,
@@ -16,7 +20,7 @@ import CodeOutputTabs from "./tabs";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogHeader } from "~/components/ui/dialog";
 
-export default function OutputTabContent({
+const OutputTabContent = observer(function OutputTabContent({
   activeAlgorithm,
   activeResponse,
   enableOutput,
@@ -29,6 +33,15 @@ export default function OutputTabContent({
   showCodeTab?: boolean;
 }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const { database, setLayerSlice, clearLayerSlice, databaseDrawerStateMap } =
+    useStore();
+  const layerSlice = databaseDrawerStateMap[database!.name].layerSlice;
+
+  const canSlice =
+    !!activeAlgorithm?.buildSliceSteps &&
+    !!activeResponse &&
+    isAlgorithmVisualizationResult(activeResponse) &&
+    "data" in activeResponse;
 
   const outputContent = useMemo(() => {
     if (!activeResponse) {
@@ -65,6 +78,33 @@ export default function OutputTabContent({
     return "Output";
   }, [activeAlgorithm, activeResponse]);
 
+  const onToggleLayerSlice = () => {
+    if (!canSlice || !activeAlgorithm?.buildSliceSteps || !activeResponse) {
+      return;
+    }
+    if (layerSlice?.active) {
+      clearLayerSlice();
+      return;
+    }
+    if (!isAlgorithmVisualizationResult(activeResponse) || !("data" in activeResponse)) {
+      return;
+    }
+    const labelToId = buildLabelToIdMap(database!.graph.nodes);
+    const steps = activeAlgorithm.buildSliceSteps(
+      (activeResponse as { data: unknown }).data,
+      { labelToId }
+    );
+    if (steps.length === 0) {
+      toast.error("No slice steps available for this result");
+      return;
+    }
+    setLayerSlice({
+      active: true,
+      currentIndex: 0,
+      steps,
+    });
+  };
+
   return (
     <>
       <div className="flex h-full min-h-0 flex-col">
@@ -79,6 +119,16 @@ export default function OutputTabContent({
             />
             {!!activeResponse && (
               <div className="flex items-center gap-2">
+                {canSlice && (
+                  <Button
+                    variant={layerSlice?.active ? "default" : "ghost"}
+                    onClick={onToggleLayerSlice}
+                    title="Preview cumulative layers from the result"
+                  >
+                    <Layers />
+                    {layerSlice?.active ? "Exit Slice" : "Layer Slice"}
+                  </Button>
+                )}
                 <Button variant="ghost" onClick={() => setIsFullScreen(true)}>
                   <Maximize2 /> Fullscreen
                 </Button>
@@ -102,4 +152,6 @@ export default function OutputTabContent({
       </Dialog>
     </>
   );
-}
+});
+
+export default OutputTabContent;

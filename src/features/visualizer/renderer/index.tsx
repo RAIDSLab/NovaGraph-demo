@@ -8,6 +8,12 @@ import { observer } from "mobx-react-lite";
 
 import type { GraphEdge, GraphNode } from "../types";
 import { useStore } from "../hooks/use-store";
+import {
+  buildLabelToIdMap,
+  deriveSliceColorMap,
+  resolveLabel,
+} from "../layer-slice";
+import LayerSliceControls from "../layer-slice/LayerSliceControls";
 
 import GraphRendererHeader from "./header";
 import GraphRendererFooter from "./footer";
@@ -17,8 +23,10 @@ import NodeMetadata from "./node-metadata";
 import {
   ALGORITHM_RENDER_DONE_EVENT,
   ALGORITHM_RUN_STATE_EVENT,
+  FOCUS_NODE_EVENT,
   type AlgorithmRenderDoneDetail,
   type AlgorithmRunStateDetail,
+  type FocusNodeDetail,
 } from "./events";
 import { RENDER_DEFAULTS, SIMULATION_DEFAULTS } from "./constant";
 
@@ -38,7 +46,8 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
     simulationDecay,
     autoPauseOnSimulationEnd,
   } = useStore();
-  const { activeResponse } = databaseDrawerStateMap[database!.name];
+  const { activeResponse, layerSlice } =
+    databaseDrawerStateMap[database!.name];
 
   const { nodes, edges, nodesMap, nodeTables, directed } = database.graph;
 
@@ -48,13 +57,22 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
       colors: {},
       mode: MODE.COLOR_SHADE_DEFAULT,
     };
+    if (layerSlice?.active && layerSlice.steps.length > 0) {
+      const derived = deriveSliceColorMap(
+        layerSlice.steps,
+        layerSlice.currentIndex
+      );
+      result.colors = derived.colorMap;
+      result.mode = derived.mode;
+      return result;
+    }
     if (!!activeResponse) {
       !!activeResponse.sizeMap && (result.sizes = activeResponse.sizeMap);
       result.colors = activeResponse.colorMap;
       result.mode = activeResponse.mode;
     }
     return result;
-  }, [activeResponse]);
+  }, [activeResponse, layerSlice]);
 
   // Refs
   const cosmographRef = useRef<CosmographRef<GraphNode, GraphEdge> | null>(
@@ -228,6 +246,27 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
     setClickedNode(node ?? null);
   };
 
+  const selectNodeRef = useRef(selectNode);
+  selectNodeRef.current = selectNode;
+
+  // Jump to a node from algorithm output (clickable labels).
+  useEffect(() => {
+    const handleFocusNode = (event: Event) => {
+      const detail = (event as CustomEvent<FocusNodeDetail>).detail;
+      if (!detail?.label) return;
+
+      const labelToId = buildLabelToIdMap(nodes);
+      const id = resolveLabel(detail.label, labelToId);
+      if (!id) return;
+
+      const node = nodesMap.get(id);
+      if (node) selectNodeRef.current(node);
+    };
+
+    window.addEventListener(FOCUS_NODE_EVENT, handleFocusNode);
+    return () => window.removeEventListener(FOCUS_NODE_EVENT, handleFocusNode);
+  }, [nodes, nodesMap]);
+
   const unselectNode = (_: GraphNode | null | undefined) => {
     cosmographRef.current?.unselectNodes();
     setClickedNode(null);
@@ -295,6 +334,11 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
 
         {/* Bottom Gradient Overlay */}
         <GradientOverlay position="bottom" />
+
+        {/* Layer Slice slider (post-run overlay) */}
+        <div className="pointer-events-none absolute bottom-14 left-1/2 z-10 -translate-x-1/2 px-4">
+          <LayerSliceControls />
+        </div>
 
         {/* Footer */}
         <GraphRendererFooter

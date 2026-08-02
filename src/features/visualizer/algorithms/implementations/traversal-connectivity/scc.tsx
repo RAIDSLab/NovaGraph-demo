@@ -1,10 +1,12 @@
 import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { ClickableNodeLabel } from "../../components/clickable-node-label";
 import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 import { WhatThisMeansSection } from "../../components/what-this-means-section";
 import { ChevronRight } from "lucide-react";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 
+import { sccSliceSteps } from "~/features/visualizer/layer-slice";
 import type { SCCOutputData } from "~/igraph/algorithms/Community/IgraphStronglyConnectedComponents";
 import {
   Collapsible,
@@ -20,6 +22,7 @@ export const scc = createGraphAlgorithm<SCCOutputData>({
     return await igraphController.stronglyConnectedComponents();
   },
   output: (props) => <SCC {...props} />,
+  buildSliceSteps: sccSliceSteps,
 });
 
 function SCC(props: GraphAlgorithmResult<SCCOutputData>) {
@@ -112,12 +115,11 @@ function SCCRowComponent({
         </CollapsibleTrigger>
         <CollapsibleContent className="px-3 py-2 flex flex-wrap gap-1">
           {component.map((c, i) => (
-            <span
+            <ClickableNodeLabel
               key={`${index}-${i}-${c}`}
-              className="px-3 py-1.5 rounded-md bg-primary-low"
-            >
-              {c}
-            </span>
+              label={c}
+              variant="chip"
+            />
           ))}
         </CollapsibleContent>
       </Collapsible>

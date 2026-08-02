@@ -26,13 +26,11 @@ import {
   emptyBenchmarkTiming,
   logBenchmarkTiming,
 } from "~/igraph/benchmark-timing";
+import { synthesizeNodesFromEdges } from "~/lib/synthesizeNodesFromEdges";
 
 const validateNodes = async (file: File | undefined) => {
-  if (!file)
-    return {
-      success: false,
-      message: "Unable to read file content. Please try again.",
-    };
+  // nodes.csv is optional — nodes can be inferred from edges source/target
+  if (!file) return { success: true };
 
   try {
     const text = await file.text();
@@ -92,18 +90,27 @@ const validateEdges = async (file: File | undefined) => {
     const text = await file.text();
     const lines = text.trim().split("\n");
 
-    // Check header
-    const header = lines[0].trim();
-    if (!header.includes("source") || !header.includes("target")) {
+    if (lines.length < 2) {
       return {
         success: false,
         message:
-          "Edges file must have 'source,target,weight' or 'source,target' as the header (first line)",
+          "Edges file must have at least two lines (one header, one edge)",
       };
     }
 
-    // Check if every line has exactly two or three node
-    const validLength = header.split(",").length;
+    // Check header
+    const header = lines[0].trim();
+    const columns = header.split(",").map((col) => col.trim());
+    if (!columns.includes("source") || !columns.includes("target")) {
+      return {
+        success: false,
+        message:
+          "Edges file must have 'source' and 'target' columns in the header (first line)",
+      };
+    }
+
+    // Check if every line has the same number of columns as header
+    const validLength = columns.length;
     const isValid = lines
       .slice(1)
       .every((line) => line.split(",").length === validLength);
@@ -130,11 +137,12 @@ export const ImportCSV: ImportOption = {
   icon: TableIcon,
   title: "Import CSV Files",
   description:
-    "Upload your graph data by selecting two CSV files: one for nodes and one for edges. The node table name will be taken from the filename (without .csv). The first column in nodes.csv will be the primary key, and all columns will be imported as node properties. Edges.csv should have source and target columns (matching the node primary key), with optional weight column and other additional columns.",
+    "Upload edges.csv (required) and optionally nodes.csv. If nodes.csv is omitted, unique values from the edges source and target columns are used to create nodes automatically. When provided, the node table name comes from the filename (without .csv), the first column is the primary key, and all columns are imported as node properties. edges.csv must have source and target columns (matching the node primary key), with optional weight and other columns.",
   previewTitle: "CSV Format Preview",
-  previewDescription: "Expected format for nodes.csv and edges.csv files",
+  previewDescription:
+    "Expected format for edges.csv; nodes.csv is optional and can be inferred",
   preview: CSVPreview,
-  note: "The 'weight' column in edges.csv is **optional**! Novagraph assumes the presence of 'weight' signifies a weighted graph. Edges in a directed graph have directions. Edges in an undirected graph are bi-directional.",
+  note: "nodes.csv is **optional** — if omitted, Novagraph infers nodes from edge source/target. The 'weight' column in edges.csv is also optional; its presence signifies a weighted graph. Edges in a directed graph have directions. Edges in an undirected graph are bi-directional.",
   inputs: [
     createTextInput({
       id: "database-name-csv",
@@ -158,8 +166,8 @@ export const ImportCSV: ImportOption = {
     createFileInput({
       id: "nodes-csv",
       key: "nodes",
-      displayName: "nodes.csv",
-      required: true,
+      displayName: "nodes.csv (optional)",
+      required: false,
       accept: ".csv",
       validator: validateNodes,
     }),
@@ -186,14 +194,25 @@ export const ImportCSV: ImportOption = {
     const directed = Boolean(isDirected?.value ?? true);
     const isPersistent = Boolean(persistent?.value ?? true);
 
-    const nodesFile = nodes.value as File;
+    const nodesFile = nodes?.value as File | undefined;
     const edgesFile = edges.value as File;
 
-    const nodesText = await nodesFile.text();
     const edgesText = await edgesFile.text();
-
-    const nodeTableName = nodesFile.name.replace(/\.csv$/i, "");
     const edgeTableName = edgesFile.name.replace(/\.csv$/i, "");
+
+    let nodesText: string;
+    let nodeTableName: string;
+    let nodesFileName: string;
+
+    if (nodesFile) {
+      nodesText = await nodesFile.text();
+      nodeTableName = nodesFile.name.replace(/\.csv$/i, "");
+      nodesFileName = nodesFile.name;
+    } else {
+      nodesText = synthesizeNodesFromEdges(edgesText);
+      nodeTableName = "nodes";
+      nodesFileName = "(inferred from edges)";
+    }
 
     let databaseCreated = false;
     try {
@@ -226,7 +245,7 @@ export const ImportCSV: ImportOption = {
         caseId: "BC00",
         timing,
         input: {
-          nodes_file: nodesFile.name,
+          nodes_file: nodesFileName,
           edges_file: edgesFile.name,
           directed,
           persistent: isPersistent,
@@ -268,10 +287,10 @@ function CSVPreview() {
           <>
             {/* Table view */}
             <Table className="max-h-56">
-              <TableCaption>nodes.csv</TableCaption>
+              <TableCaption>nodes.csv (optional / inferred)</TableCaption>
               <TableHeader>
                 <TableRow>
-                  <TableHead>node</TableHead>
+                  <TableHead>id</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -334,10 +353,10 @@ function CSVPreview() {
                   background: "transparent",
                 }}
               >
-                {["node", "John", "Michael", "Sarah", "Tina"].join("\n")}
+                {["id", "John", "Michael", "Sarah", "Tina"].join("\n")}
               </SyntaxHighlighter>
               <p className="text-typography-primary mt-4 small-body">
-                nodes.csv
+                nodes.csv (optional / inferred)
               </p>
             </div>
             <div className="flex flex-col items-center w-full">

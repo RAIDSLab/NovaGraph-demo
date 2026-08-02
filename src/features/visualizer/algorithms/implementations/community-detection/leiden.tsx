@@ -1,4 +1,5 @@
 import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { ClickableNodeLabel } from "../../components/clickable-node-label";
 import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 import { WhatThisMeansSection } from "../../components/what-this-means-section";
 import { ChevronRight } from "lucide-react";
@@ -141,12 +142,11 @@ function LeidenCommunityRowComponent({
         </CollapsibleTrigger>
         <CollapsibleContent className="px-3 py-2 flex flex-wrap gap-1">
           {community.map((c, i) => (
-            <span
+            <ClickableNodeLabel
               key={`${index}-${i}-${c}`}
-              className="px-3 py-1.5 rounded-md bg-primary-low"
-            >
-              {c}
-            </span>
+              label={c}
+              variant="chip"
+            />
           ))}
         </CollapsibleContent>
       </Collapsible>

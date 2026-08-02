@@ -1,10 +1,12 @@
 import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { ClickableNodeLabel } from "../../components/clickable-node-label";
 import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 import { WhatThisMeansSection } from "../../components/what-this-means-section";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 
 import type { EulerianPathOutputData } from "~/igraph/algorithms/Misc/IgraphEulerianPath";
+import { eulerianPathSliceSteps } from "~/features/visualizer/layer-slice";
 
 export const eulerianPath = createGraphAlgorithm<EulerianPathOutputData>({
   title: "Eulerian Path",
@@ -14,6 +16,7 @@ export const eulerianPath = createGraphAlgorithm<EulerianPathOutputData>({
     return await igraphController.eulerianPath();
   },
   output: (props) => <EulerianPath {...props} />,
+  buildSliceSteps: eulerianPathSliceSteps,
 });
 
 function EulerianPath(props: GraphAlgorithmResult<EulerianPathOutputData>) {
@@ -129,13 +132,17 @@ function EulerianPathRowComponent({
           {/* Source to Target */}
           <div className="min-w-0 overflow-hidden">
             <div className="flex items-center gap-2 h-full">
-              <span className="max-w-1/2 px-3 py-1.5 rounded-md bg-primary-low text-sm truncate whitespace-nowrap">
-                {path.from}
-              </span>
+              <ClickableNodeLabel
+                label={path.from}
+                variant="chip"
+                className="max-w-1/2 text-sm truncate whitespace-nowrap"
+              />
               <span className="shrink-0">→</span>
-              <span className="max-w-1/2 px-3 py-1.5 rounded-md bg-primary-low text-sm truncate whitespace-nowrap">
-                {path.to}
-              </span>
+              <ClickableNodeLabel
+                label={path.to}
+                variant="chip"
+                className="max-w-1/2 text-sm truncate whitespace-nowrap"
+              />
             </div>
           </div>
 

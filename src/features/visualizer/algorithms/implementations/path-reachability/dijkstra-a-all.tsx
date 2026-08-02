@@ -1,7 +1,9 @@
 import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { ClickableNodeLabel } from "../../components/clickable-node-label";
+import { ResultsSearchInput } from "../../components/results-search-input";
 import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 import { WhatThisMeansSection } from "../../components/what-this-means-section";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 
@@ -10,6 +12,7 @@ import InputComponent, {
   createEmptyInputResult,
   createSwitchInput,
 } from "~/features/visualizer/inputs";
+import { dijkstraAToAllSliceSteps } from "~/features/visualizer/layer-slice";
 import type { DijkstraAToAllOutputData } from "~/igraph/algorithms/PathFinding/IgraphDijkstraAtoAll";
 
 export const dijkstraAToAll = createGraphAlgorithm<DijkstraAToAllOutputData>({
@@ -28,10 +31,12 @@ export const dijkstraAToAll = createGraphAlgorithm<DijkstraAToAllOutputData>({
     return await igraphController.dijkstraAToAll(arg1);
   },
   output: (props) => <DijkstraAToAll {...props} />,
+  buildSliceSteps: dijkstraAToAllSliceSteps,
 });
 
 function DijkstraAToAll(props: GraphAlgorithmResult<DijkstraAToAllOutputData>) {
   const { source, weighted, paths } = props.data;
+  const [search, setSearch] = useState("");
 
   const rowHeight = useDynamicRowHeight({
     defaultRowHeight: 48,
@@ -50,6 +55,16 @@ function DijkstraAToAll(props: GraphAlgorithmResult<DijkstraAToAllOutputData>) {
     createEmptyInputResult(showWeightsInput)
   );
 
+  const filteredPaths = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return paths;
+    return paths.filter(
+      (path) =>
+        path.target.toLowerCase().includes(query) ||
+        path.path.some((node) => node.toLowerCase().includes(query))
+    );
+  }, [paths, search]);
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
       <p className="font-medium text-sm text-positive">
@@ -58,28 +73,47 @@ function DijkstraAToAll(props: GraphAlgorithmResult<DijkstraAToAllOutputData>) {
 
       {/* Statistics */}
       <p className="text-sm text-typography-secondary">
-        Source: <b className="text-typography-primary">{source}</b>
+        Source: <ClickableNodeLabel label={source} variant="inline" />
       </p>
 
       {/* Paths */}
       <div className="flex min-h-0 flex-1 flex-col gap-3 border-t border-t-border pt-3 isolate">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="shrink-0 font-semibold">Traversal Paths</h3>
-          <div className="flex gap-2">
-            <span className="text-sm">Show Weight:</span>
-            <InputComponent
-              input={showWeightsInput}
-              value={showWeight.value}
-              onChange={setShowWeight}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
+            <ResultsSearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search targets..."
+              resultCount={filteredPaths.length}
+              totalCount={paths.length}
+              className="sm:max-w-56 sm:flex-none"
             />
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Show Weight:</span>
+              <InputComponent
+                input={showWeightsInput}
+                value={showWeight.value}
+                onChange={setShowWeight}
+              />
+            </div>
           </div>
         </div>
-        <VirtualizedListPanel
+        {filteredPaths.length === 0 ? (
+          <p className="text-sm text-typography-secondary">
+            No paths match your search.
+          </p>
+        ) : (
+          <VirtualizedListPanel
             rowComponent={DijkstraSingleSourcePathRowComponent}
-            rowCount={paths.length + 1} // Top header row
+            rowCount={filteredPaths.length + 1}
             rowHeight={rowHeight}
-            rowProps={{ showWeight: showWeight.value ?? false, paths }}
+            rowProps={{
+              showWeight: showWeight.value ?? false,
+              paths: filteredPaths,
+            }}
           />
+        )}
       </div>
 
       <WhatThisMeansSection>
@@ -151,7 +185,10 @@ function DijkstraSingleSourcePathRowComponent({
         showWeight ? "grid-cols-4" : "grid-cols-3"
       } not-odd:bg-neutral-low/50`}
     >
-      <span className="font-semibold px-3 py-1.5">{path.target}</span>
+      <ClickableNodeLabel
+        label={path.target}
+        className="font-semibold px-3 py-1.5"
+      />
       <span className="font-semibold px-3 py-1.5">{path.path.length}</span>
 
       {showWeight && (
@@ -168,9 +205,11 @@ function DijkstraSingleSourcePathRowComponent({
       >
         {path.path.map((p, i) => (
           <div key={`${index}-${i}-${p}`} className="flex items-center">
-            <span className="px-3 py-1.5 rounded-md text-nowrap bg-primary-low">
-              {p}
-            </span>
+            <ClickableNodeLabel
+              label={p}
+              variant="chip"
+              className="text-nowrap"
+            />
             {i < path.path.length - 1 && <span>→</span>}
           </div>
         ))}

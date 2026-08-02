@@ -14,23 +14,29 @@ export default function FileInputComponent({
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleFile = async (newValue: File) => {
-    const required = !!input.required;
-
     if (!input.validate) {
-      return { value: newValue, success: true };
+      onChange({ value: newValue, success: true });
+      return;
     }
 
-    const validator = await input.validator?.(newValue);
-    const isValid = required
-      ? validator && !!newValue
-        ? validator.success
-        : !!newValue
-      : true;
-    const message = required
-      ? validator && !!newValue
-        ? (validator.message ?? "")
-        : "This field is required."
-      : "";
+    if (input.validator) {
+      const validator = await input.validator(newValue);
+      const isValid = validator.success;
+      const message = validator.message ?? "";
+
+      setShowError(!isValid);
+      setErrorMessage(message);
+
+      onChange({
+        value: newValue,
+        success: isValid,
+        message,
+      });
+      return;
+    }
+
+    const isValid = !!newValue || !input.required;
+    const message = isValid ? "" : "This field is required.";
 
     setShowError(!isValid);
     setErrorMessage(message);
@@ -38,7 +44,7 @@ export default function FileInputComponent({
     onChange({
       value: newValue,
       success: isValid,
-      message: message,
+      message,
     });
   };
 
@@ -46,6 +52,14 @@ export default function FileInputComponent({
     const files = e.target.files;
     if (files && files.length > 0) {
       handleFile(files[0]);
+    } else if (!input.required) {
+      setShowError(false);
+      setErrorMessage("");
+      onChange({
+        value: undefined,
+        success: true,
+        message: "",
+      });
     } else {
       const errorMessage =
         "There's something wrong with uploading the file. Please try again.";

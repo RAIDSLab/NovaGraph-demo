@@ -1,9 +1,11 @@
 import { type RowComponentProps } from "react-window";
+import { ClickableNodeLabel } from "../../components/clickable-node-label";
 import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 import { WhatThisMeansSection } from "../../components/what-this-means-section";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 
+import { topologicalSortSliceSteps } from "~/features/visualizer/layer-slice";
 import type { TopologicalSortOutputData } from "~/igraph/algorithms/Misc/IgraphTopologicalSort";
 
 export const topologicalSort = createGraphAlgorithm<TopologicalSortOutputData>({
@@ -15,6 +17,7 @@ export const topologicalSort = createGraphAlgorithm<TopologicalSortOutputData>({
     return await igraphController.topologicalSort();
   },
   output: (props) => <TopologicalSort {...props} />,
+  buildSliceSteps: topologicalSortSliceSteps,
 });
 
 function TopologicalSort(
@@ -100,7 +103,7 @@ function TopologicalOrderRowComponent({
       style={style}
     >
       <span className="px-3 py-1.5">{index}</span>
-      <span className="px-3 py-1.5 truncate">{order}</span>
+      <ClickableNodeLabel label={order} className="px-3 py-1.5 truncate" />
     </div>
   );
 }

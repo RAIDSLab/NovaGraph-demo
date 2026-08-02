@@ -5,9 +5,11 @@ import {
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
 import { AlgorithmOutputShell } from "../../components/algorithm-output-shell";
+import { ClickableNodeLabel } from "../../components/clickable-node-label";
 import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 
 import { createAlgorithmSelectInput } from "~/features/visualizer/inputs";
+import { dfsSliceSteps } from "~/features/visualizer/layer-slice";
 import type { DFSOutputData } from "~/igraph/algorithms/PathFinding/IgraphDFS";
 
 export const dfs = createGraphAlgorithm<DFSOutputData>({
@@ -27,6 +29,7 @@ export const dfs = createGraphAlgorithm<DFSOutputData>({
     return await igraphController.dfs(arg1);
   },
   output: (props) => <DFS {...props} />,
+  buildSliceSteps: dfsSliceSteps,
 });
 
 const isEmptySubtree = (tree: string[]) => {
@@ -159,9 +162,11 @@ function DFSSubtreeRowComponent({
         <span className="col-span-2 flex gap-1 overflow-x-auto font-semibold px-3 py-1.5">
           {subtree.tree.map((tree, i) => (
             <div key={`${index}-${i}-${tree}`} className="py-1.5">
-              <span className="px-3 py-1.5 rounded-md text-nowrap bg-primary-low">
-                {tree}
-              </span>
+              <ClickableNodeLabel
+                label={tree}
+                variant="chip"
+                className="text-nowrap"
+              />
               {i < subtree.tree.length - 1 && <span>→</span>}
             </div>
           ))}

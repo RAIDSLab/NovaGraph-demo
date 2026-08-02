@@ -28,6 +28,7 @@ import {
   type NodeSizeScale,
 } from "./renderer/constant";
 import type { BaseGraphAlgorithm } from "./algorithms/implementations";
+import type { LayerSliceState } from "./layer-slice";
 
 import { controller } from "~/MainController";
 
@@ -75,6 +76,9 @@ export default class VisualizerStore {
       setCode: action,
       setActiveAlgorithm: action,
       setActiveResponse: action,
+      setLayerSlice: action,
+      clearLayerSlice: action,
+      setLayerSliceIndex: action,
     });
   }
 
@@ -101,6 +105,7 @@ export default class VisualizerStore {
       code: string;
       activeAlgorithm: BaseGraphAlgorithm | null;
       activeResponse: VisualizationResponse | null;
+      layerSlice: LayerSliceState | null;
     }
   > = {};
 
@@ -179,6 +184,7 @@ export default class VisualizerStore {
         code: "",
         activeAlgorithm: null,
         activeResponse: null,
+        layerSlice: null,
       };
     });
 
@@ -268,6 +274,7 @@ export default class VisualizerStore {
         code: "",
         activeAlgorithm: null,
         activeResponse: null,
+        layerSlice: null,
       };
     });
   };
@@ -448,8 +455,33 @@ export default class VisualizerStore {
 
   setActiveResponse = (activeResponse: VisualizationResponse | null) => {
     if (this.database == null) return;
-    this.databaseDrawerStateMap[this.database.name].activeResponse =
-      activeResponse;
+    const drawer = this.databaseDrawerStateMap[this.database.name];
+    drawer.activeResponse = activeResponse;
+    drawer.layerSlice = null;
+  };
+
+  setLayerSlice = (layerSlice: LayerSliceState | null) => {
+    if (this.database == null) return;
+    this.databaseDrawerStateMap[this.database.name].layerSlice = layerSlice;
+  };
+
+  clearLayerSlice = () => {
+    if (this.database == null) return;
+    this.databaseDrawerStateMap[this.database.name].layerSlice = null;
+  };
+
+  setLayerSliceIndex = (currentIndex: number) => {
+    if (this.database == null) return;
+    const slice = this.databaseDrawerStateMap[this.database.name].layerSlice;
+    if (!slice || !slice.active || slice.steps.length === 0) return;
+    const clamped = Math.min(
+      Math.max(currentIndex, 0),
+      slice.steps.length - 1
+    );
+    this.databaseDrawerStateMap[this.database.name].layerSlice = {
+      ...slice,
+      currentIndex: clamped,
+    };
   };
 
   // UTILITIES FUNCTION

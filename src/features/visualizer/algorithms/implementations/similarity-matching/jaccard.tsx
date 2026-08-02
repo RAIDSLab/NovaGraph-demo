@@ -1,6 +1,7 @@
 import { Grid, type CellComponentProps } from "react-window";
 
 import { createGraphAlgorithm, type GraphAlgorithmResult } from "../types";
+import { ClickableNodeLabel } from "../../components/clickable-node-label";
 import { FlexibleScrollPanel } from "../../components/flexible-scroll-panel";
 import { WhatThisMeansSection } from "../../components/what-this-means-section";
 
@@ -154,9 +155,11 @@ function JaccardSimilarityCellComponent({
         style={style}
         className="bg-neutral-low border border-border flex items-center justify-center text-xs font-semibold"
       >
-        <span title={nodes[columnIndex - 1]} className="truncate">
-          {nodes[columnIndex - 1]}
-        </span>
+        <ClickableNodeLabel
+          label={nodes[columnIndex - 1]}
+          title={nodes[columnIndex - 1]}
+          className="truncate"
+        />
       </div>
     );
   }
@@ -169,9 +172,11 @@ function JaccardSimilarityCellComponent({
         style={style}
         className="bg-neutral-low border border-border flex items-center justify-center text-xs font-semibold"
       >
-        <span title={nodes[rowIndex - 1]} className="truncate">
-          {nodes[rowIndex - 1]}
-        </span>
+        <ClickableNodeLabel
+          label={nodes[rowIndex - 1]}
+          title={nodes[rowIndex - 1]}
+          className="truncate"
+        />
       </div>
     );
   }

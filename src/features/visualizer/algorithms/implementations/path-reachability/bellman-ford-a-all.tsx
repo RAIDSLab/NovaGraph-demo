@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useDynamicRowHeight, type RowComponentProps } from "react-window";
+import { ClickableNodeLabel } from "../../components/clickable-node-label";
 import { VirtualizedListPanel } from "../../components/virtualized-list-panel";
 import { WhatThisMeansSection } from "../../components/what-this-means-section";
 
@@ -11,6 +12,7 @@ import InputComponent, {
   createSwitchInput,
 } from "~/features/visualizer/inputs";
 import type { BellmanFordAToAllOutputData } from "~/igraph/algorithms/PathFinding/IgraphBellmanFordAToAll";
+import { bellmanFordAToAllSliceSteps } from "~/features/visualizer/layer-slice";
 
 export const bellmanFordAToAll =
   createGraphAlgorithm<BellmanFordAToAllOutputData>({
@@ -30,6 +32,7 @@ export const bellmanFordAToAll =
       return await igraphController.bellmanFordAToAll(arg1);
     },
     output: (props) => <BellmanFordAToAll {...props} />,
+    buildSliceSteps: bellmanFordAToAllSliceSteps,
   });
 
 function BellmanFordAToAll(
@@ -165,7 +168,10 @@ function BFSingleSourcePathRowComponent({
         showWeight ? "grid-cols-4" : "grid-cols-3"
       } not-odd:bg-neutral-low/50`}
     >
-      <span className="font-semibold px-3 py-1.5">{path.target}</span>
+      <ClickableNodeLabel
+        label={path.target}
+        className="font-semibold px-3 py-1.5"
+      />
       <span className="font-semibold px-3 py-1.5">{path.path.length}</span>
 
       {showWeight && (
@@ -182,9 +188,11 @@ function BFSingleSourcePathRowComponent({
       >
         {path.path.map((p, i) => (
           <div key={`${index}-${i}-${p}`} className="flex items-center">
-            <span className="px-3 py-1.5 rounded-md text-nowrap bg-primary-low">
-              {p}
-            </span>
+            <ClickableNodeLabel
+              label={p}
+              variant="chip"
+              className="text-nowrap"
+            />
             {i < path.path.length - 1 && <span>→</span>}
           </div>
         ))}
