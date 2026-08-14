@@ -14,12 +14,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bison \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Emscripten
+# Install Emscripten (pin version for reproducible WASM builds)
+ARG EMSCRIPTEN_VERSION=3.1.74
 WORKDIR /opt
 RUN git clone https://github.com/emscripten-core/emsdk.git emsdk && \
-    cd emsdk && ./emsdk install latest && ./emsdk activate latest
+    cd emsdk && \
+    ./emsdk install ${EMSCRIPTEN_VERSION} && \
+    ./emsdk activate ${EMSCRIPTEN_VERSION}
 ENV EMSDK=/opt/emsdk
-ENV PATH="${EMSDK}:${EMSDK}/node/latest/bin:${EMSDK}/upstream/emscripten:${PATH}"
+ENV PATH="${EMSDK}:${EMSDK}/upstream/emscripten:${PATH}"
 
 # Prepare source
 WORKDIR /src/wasm
@@ -32,13 +35,15 @@ RUN cd pugixml && mkdir build && cd build && \
     emcmake cmake .. -DCMAKE_C_FLAGS="-Wno-error=uninitialized" && \
     emmake make
 
-# Build igraph
+# Build igraph (OpenMP must be OFF for WASM — no __kmpc_* runtime at link time)
 RUN cd igraph && \
     sed -i 's/message(FATAL_ERROR "IEEE754 double endianness test terminated abnormally.")/set(IEEE754_DOUBLE_BIG_ENDIAN FALSE)\nset(IEEE754_DOUBLE_LITTLE_ENDIAN TRUE)/' etc/cmake/ieee754_endianness.cmake && \
     sed -i 's/message(FATAL_ERROR "igraph only supports platforms where IEEE754 doubles have the same endianness as uint64_t.")/set(IEEE754_DOUBLE_BIG_ENDIAN FALSE)\nset(IEEE754_DOUBLE_LITTLE_ENDIAN TRUE)/' etc/cmake/ieee754_endianness.cmake && \
     sed -i '/include(etc\/cmake\/ieee754_endianness.cmake)/i set(IEEE754_DOUBLE_BIG_ENDIAN FALSE)\nset(IEEE754_DOUBLE_LITTLE_ENDIAN TRUE)' CMakeLists.txt && \
     mkdir build && cd build && \
-    emcmake cmake .. -DCMAKE_C_FLAGS="-Wno-error=uninitialized" && \
+    emcmake cmake .. \
+      -DCMAKE_C_FLAGS="-Wno-error=uninitialized" \
+      -DIGRAPH_OPENMP_SUPPORT=OFF && \
     emmake make
 
 

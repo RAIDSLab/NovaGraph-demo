@@ -27,6 +27,11 @@ import {
   logBenchmarkTiming,
 } from "~/igraph/benchmark-timing";
 import { synthesizeNodesFromEdges } from "~/lib/synthesizeNodesFromEdges";
+import {
+  EDGE_ENDPOINT_ALIAS_HELP,
+  normalizeEdgesCsvText,
+  resolveEndpointColumns,
+} from "~/lib/resolveEdgeEndpoints";
 
 const validateNodes = async (file: File | undefined) => {
   // nodes.csv is optional — nodes can be inferred from edges source/target
@@ -98,14 +103,18 @@ const validateEdges = async (file: File | undefined) => {
       };
     }
 
-    // Check header
+    // Check header — accept common endpoint aliases
     const header = lines[0].trim();
     const columns = header.split(",").map((col) => col.trim());
-    if (!columns.includes("source") || !columns.includes("target")) {
+    try {
+      resolveEndpointColumns(columns);
+    } catch (error) {
       return {
         success: false,
         message:
-          "Edges file must have 'source' and 'target' columns in the header (first line)",
+          error instanceof Error
+            ? error.message
+            : "Edges file must have endpoint columns in the header",
       };
     }
 
@@ -137,12 +146,12 @@ export const ImportCSV: ImportOption = {
   icon: TableIcon,
   title: "Import CSV Files",
   description:
-    "Upload edges.csv (required) and optionally nodes.csv. If nodes.csv is omitted, unique values from the edges source and target columns are used to create nodes automatically. When provided, the node table name comes from the filename (without .csv), the first column is the primary key, and all columns are imported as node properties. edges.csv must have source and target columns (matching the node primary key), with optional weight and other columns.",
+    "Upload edges.csv (required) and optionally nodes.csv. If nodes.csv is omitted, unique values from the edge endpoint columns are used to create nodes automatically. When provided, the node table name comes from the filename (without .csv), the first column is the primary key, and all columns are imported as node properties. edges.csv must have endpoint columns (source/target or common aliases), with optional weight and other columns.",
   previewTitle: "CSV Format Preview",
   previewDescription:
     "Expected format for edges.csv; nodes.csv is optional and can be inferred",
   preview: CSVPreview,
-  note: "nodes.csv is **optional** — if omitted, Novagraph infers nodes from edge source/target. The 'weight' column in edges.csv is also optional; its presence signifies a weighted graph. Edges in a directed graph have directions. Edges in an undirected graph are bi-directional.",
+  note: `nodes.csv is **optional** — if omitted, Novagraph infers nodes from edge endpoints. ${EDGE_ENDPOINT_ALIAS_HELP} The 'weight' column in edges.csv is also optional; its presence signifies a weighted graph. Edges in a directed graph have directions. Edges in an undirected graph are bi-directional.`,
   inputs: [
     createTextInput({
       id: "database-name-csv",
@@ -197,7 +206,8 @@ export const ImportCSV: ImportOption = {
     const nodesFile = nodes?.value as File | undefined;
     const edgesFile = edges.value as File;
 
-    const edgesText = await edgesFile.text();
+    const edgesTextRaw = await edgesFile.text();
+    const edgesText = normalizeEdgesCsvText(edgesTextRaw);
     const edgeTableName = edgesFile.name.replace(/\.csv$/i, "");
 
     let nodesText: string;

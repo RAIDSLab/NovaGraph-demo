@@ -4,11 +4,9 @@ import { toast } from "sonner";
 import type { GraphNode } from "../types";
 import InputComponent, { createEmptyInputResults } from "../inputs";
 import type VisualizerStore from "../store";
+import { useStore } from "../hooks/use-store";
 
-import type {
-  BaseGraphAlgorithm,
-  BaseGraphAlgorithmResult,
-} from "./implementations";
+import type { BaseGraphAlgorithm } from "./implementations";
 
 import { SidebarMenuButton } from "~/components/ui/sidebar";
 import { cn } from "~/lib/utils";
@@ -69,8 +67,8 @@ export default function InputDialog({
   controller,
   algorithm,
   nodes,
-  setActiveAlgorithm,
-  setActiveResponse,
+  setActiveAlgorithm: _setActiveAlgorithm,
+  setActiveResponse: _setActiveResponse,
   separator = false,
   className,
   ...props
@@ -79,11 +77,12 @@ export default function InputDialog({
   algorithm: BaseGraphAlgorithm;
   nodes: GraphNode[];
   setActiveAlgorithm: (a: BaseGraphAlgorithm | null) => void;
-  setActiveResponse: (a: BaseGraphAlgorithmResult | null) => void;
+  setActiveResponse: (a: unknown) => void;
   separator?: boolean;
 }) {
   // Hooks
   const { startLoading, stopLoading } = useLoading();
+  const { commitAlgorithmRun } = useStore();
 
   // States
   const [open, setOpen] = useState(false);
@@ -133,8 +132,7 @@ export default function InputDialog({
           args
         );
         startLoading("Applying Visualization");
-        setActiveAlgorithm(algorithm);
-        setActiveResponse(algorithmResponse);
+        commitAlgorithmRun(algorithm, algorithmResponse);
         await renderDonePromise;
 
         const igraphTiming =

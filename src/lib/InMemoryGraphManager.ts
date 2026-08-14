@@ -10,6 +10,10 @@ import type {
   NonPrimaryKeyType,
 } from "~/features/visualizer/schema-inputs";
 import type { InputChangeResult } from "~/features/visualizer/inputs";
+import { normalizeEdgesCsvText } from "~/lib/resolveEdgeEndpoints";
+import { parseGraphML } from "~/lib/parseGraphML";
+import { parseGEXF } from "~/lib/parseGEXF";
+import type { GraphEdgeRecord } from "~/lib/parseGraphRecords";
 
 /**
  * InMemoryGraphManager - Manages graph data directly in memory without kuzu
@@ -337,6 +341,8 @@ export class InMemoryGraphManager {
   ): Promise<GraphSnapshotState> {
     this.directed = isDirected;
 
+    edgesText = normalizeEdgesCsvText(edgesText);
+
     // Parse nodes CSV
     const nodesLines = nodesText.trim().split("\n");
     if (nodesLines.length < 2) {
@@ -372,7 +378,7 @@ export class InMemoryGraphManager {
       this.createNode(nodeTableName, properties);
     }
 
-    // Parse edges CSV
+    // Parse edges CSV (headers already normalized to source/target)
     const edgesLines = edgesText.trim().split("\n");
     if (edgesLines.length < 2) {
       throw new Error("Edges CSV must have at least a header and one row");
@@ -380,10 +386,6 @@ export class InMemoryGraphManager {
 
     const edgeHeader = edgesLines[0].trim();
     const edgeColumns = edgeHeader.split(",").map((col) => col.trim());
-
-    if (!edgeColumns.includes("source") || !edgeColumns.includes("target")) {
-      throw new Error("Edges CSV must have 'source' and 'target' columns");
-    }
 
     const sourceIdx = edgeColumns.indexOf("source");
     const targetIdx = edgeColumns.indexOf("target");
@@ -452,32 +454,38 @@ export class InMemoryGraphManager {
   }
 
   /**
-   * Import from JSON
+   * Shared import from in-memory node/edge object arrays.
    */
-  async importFromJSON(
-    nodesText: string,
-    edgesText: string,
+  async importFromRecords(
+    nodesData: Record<string, unknown>[],
+    edgesData: GraphEdgeRecord[],
     nodeTableName: string,
     edgeTableName: string,
     isDirected: boolean
   ): Promise<GraphSnapshotState> {
     this.directed = isDirected;
 
-    // Parse nodes JSON
-    const nodesData = JSON.parse(nodesText);
     if (!Array.isArray(nodesData) || nodesData.length === 0) {
-      throw new Error("Nodes JSON must contain at least one object");
+      throw new Error("Nodes must contain at least one object");
     }
 
     const firstNode = nodesData[0];
-    const nodeKeys = Object.keys(firstNode);
+    const nodeKeySet = new Set<string>(Object.keys(firstNode));
+    for (const node of nodesData) {
+      for (const key of Object.keys(node)) {
+        nodeKeySet.add(key);
+      }
+    }
+    const nodeKeys = [
+      ...Object.keys(firstNode),
+      ...[...nodeKeySet].filter((k) => !(k in firstNode)),
+    ];
     if (nodeKeys.length === 0) {
       throw new Error("Node objects must have at least one property");
     }
 
     const primaryKeyColumn = nodeKeys[0];
 
-    // Infer types by scanning all node objects (column type inference)
     const nodeTypes = this.inferColumnTypesFromJSONObjects(
       nodeKeys,
       nodesData as Record<string, unknown>[]
@@ -488,21 +496,25 @@ export class InMemoryGraphManager {
       type: (nodeTypes[key] || "STRING") as NonPrimaryKeyType,
     }));
 
-    this.createNodeSchema(nodeTableName, primaryKeyColumn, primaryKeyType, nodeProperties);
+    this.createNodeSchema(
+      nodeTableName,
+      primaryKeyColumn,
+      primaryKeyType,
+      nodeProperties
+    );
 
-    // Create nodes
     for (const nodeData of nodesData) {
       const properties: Record<string, { value: any }> = {};
       for (const key of nodeKeys) {
-        properties[key] = { value: nodeData[key] };
+        properties[key] = {
+          value: key in nodeData ? nodeData[key] : null,
+        };
       }
       this.createNode(nodeTableName, properties);
     }
 
-    // Parse edges JSON
-    const edgesData = JSON.parse(edgesText);
     if (!Array.isArray(edgesData) || edgesData.length === 0) {
-      throw new Error("Edges JSON must contain at least one object");
+      throw new Error("Edges must contain at least one object");
     }
 
     const firstEdge = edgesData[0];
@@ -510,12 +522,23 @@ export class InMemoryGraphManager {
       throw new Error("Edge objects must contain 'from' and 'to' properties");
     }
 
-    const edgeAttributeKeys = Object.keys(firstEdge).filter(
+    const edgePropSet = new Set<string>();
+    for (const edge of edgesData) {
+      for (const key of Object.keys(edge)) {
+        if (key !== "from" && key !== "to") {
+          edgePropSet.add(key);
+        }
+      }
+    }
+    const firstEdgeAttrs = Object.keys(firstEdge).filter(
       (key) => key !== "from" && key !== "to"
     );
+    const edgeAttributeKeys = [
+      ...firstEdgeAttrs,
+      ...[...edgePropSet].filter((k) => !firstEdgeAttrs.includes(k)),
+    ];
     const edgeKeys = ["from", "to", ...edgeAttributeKeys];
 
-    // Infer edge types by scanning all edge objects (column type inference)
     const edgeTypes = this.inferColumnTypesFromJSONObjects(
       edgeKeys,
       edgesData as Record<string, unknown>[]
@@ -531,7 +554,6 @@ export class InMemoryGraphManager {
       edgeProperties
     );
 
-    // Create edges
     const nodeMap = new Map<string, GraphNode>();
     for (const node of this.nodes) {
       const key = `${node.tableName}::${node._primaryKeyValue}`;
@@ -552,17 +574,84 @@ export class InMemoryGraphManager {
 
       const attributes: Record<string, InputChangeResult<any>> = {};
       for (const key of edgeAttributeKeys) {
-        attributes[key] = { value: edgeData[key], success: true };
+        attributes[key] = {
+          value: key in edgeData ? edgeData[key] : null,
+          success: true,
+        };
       }
 
       try {
-        this.createEdge(sourceNode, targetNode, this.edgeTables.find((t) => t.tableName === edgeTableName)!, attributes);
+        this.createEdge(
+          sourceNode,
+          targetNode,
+          this.edgeTables.find((t) => t.tableName === edgeTableName)!,
+          attributes
+        );
       } catch (err) {
         console.warn(`Skipping duplicate edge: ${sourceKey} -> ${targetKey}`);
       }
     }
 
     return this.snapshotGraphState();
+  }
+
+  /**
+   * Import from JSON
+   */
+  async importFromJSON(
+    nodesText: string,
+    edgesText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected: boolean
+  ): Promise<GraphSnapshotState> {
+    const nodesData = JSON.parse(nodesText);
+    const edgesData = JSON.parse(edgesText);
+    if (!Array.isArray(nodesData)) {
+      throw new Error("Nodes JSON must contain an array of objects");
+    }
+    if (!Array.isArray(edgesData)) {
+      throw new Error("Edges JSON must contain an array of objects");
+    }
+    return this.importFromRecords(
+      nodesData,
+      edgesData as GraphEdgeRecord[],
+      nodeTableName,
+      edgeTableName,
+      isDirected
+    );
+  }
+
+  async importFromGraphML(
+    xmlText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected: boolean
+  ): Promise<GraphSnapshotState> {
+    const parsed = parseGraphML(xmlText);
+    return this.importFromRecords(
+      parsed.nodes,
+      parsed.edges,
+      nodeTableName,
+      edgeTableName,
+      isDirected
+    );
+  }
+
+  async importFromGEXF(
+    xmlText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected: boolean
+  ): Promise<GraphSnapshotState> {
+    const parsed = parseGEXF(xmlText);
+    return this.importFromRecords(
+      parsed.nodes,
+      parsed.edges,
+      nodeTableName,
+      edgeTableName,
+      isDirected
+    );
   }
 
   /**

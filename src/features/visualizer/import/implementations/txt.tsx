@@ -71,12 +71,12 @@ export const ImportTXT: ImportOption = {
   icon: FileText,
   title: "Import TXT Files",
   description:
-    "Upload edges.txt (required) and optionally nodes.txt. Edge lines are whitespace-separated: `source target` or `source target weight`. Blank lines and `#` comments are ignored. If nodes.txt is omitted, unique source/target values become nodes. For nodes.txt: one ID per line, or a header row plus attribute columns (first column is the primary key).",
+    "Upload edges.txt (required) and optionally nodes.txt. Edge lines may be whitespace-separated (`source target` or `source target weight`) or CSV-style (`source,target`). An optional header row is skipped. Blank lines and `#` comments are ignored. If nodes.txt is omitted, unique source/target values become nodes. For nodes.txt: one ID per line, or a header row plus attribute columns (first column is the primary key).",
   previewTitle: "TXT Format Preview",
   previewDescription:
     "Expected format for edges.txt; nodes.txt is optional and can be inferred",
   preview: TXTPreview,
-  note: "nodes.txt is **optional** — if omitted, Novagraph infers nodes from edge source/target. Optional third edge column is treated as **weight**. Edges in a directed graph have directions; in an undirected graph they are bi-directional.",
+  note: "nodes.txt is **optional** — if omitted, Novagraph infers nodes from edge endpoints. Comma-separated edge lists (including a `source,target` header) are supported. Optional third edge column is treated as **weight**. Edges in a directed graph have directions; in an undirected graph they are bi-directional.",
   inputs: [
     createTextInput({
       id: "database-name-txt",

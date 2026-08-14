@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
-import { Layers, Maximize2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { GitCompareArrows, Layers, Maximize2 } from "lucide-react";
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog";
 import { observer } from "mobx-react-lite";
 import { toast } from "sonner";
 
 import type { BaseGraphAlgorithm } from "../algorithms/implementations";
+import { ComparePanel, canCompare } from "../compare";
 import { QueryOutput } from "../queries";
 import ExportDropdownButton from "../export/export-dropdown-button";
 import { useStore } from "../hooks/use-store";
@@ -19,6 +20,9 @@ import CodeOutputTabs from "./tabs";
 
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogHeader } from "~/components/ui/dialog";
+import { cn } from "~/lib/utils";
+
+type OutputViewMode = "result" | "compare";
 
 const OutputTabContent = observer(function OutputTabContent({
   activeAlgorithm,
@@ -33,9 +37,11 @@ const OutputTabContent = observer(function OutputTabContent({
   showCodeTab?: boolean;
 }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [viewMode, setViewMode] = useState<OutputViewMode>("result");
   const { database, setLayerSlice, clearLayerSlice, databaseDrawerStateMap } =
     useStore();
-  const layerSlice = databaseDrawerStateMap[database!.name].layerSlice;
+  const { layerSlice, previousRun } =
+    databaseDrawerStateMap[database!.name];
 
   const canSlice =
     !!activeAlgorithm?.buildSliceSteps &&
@@ -43,10 +49,27 @@ const OutputTabContent = observer(function OutputTabContent({
     isAlgorithmVisualizationResult(activeResponse) &&
     "data" in activeResponse;
 
-  const outputContent = useMemo(() => {
+  const showCompare =
+    !!previousRun &&
+    !!activeResponse &&
+    isAlgorithmVisualizationResult(activeResponse) &&
+    "data" in activeResponse &&
+    canCompare(previousRun.response, activeResponse);
+
+  useEffect(() => {
+    setViewMode("result");
+  }, [activeResponse, previousRun]);
+
+  useEffect(() => {
+    if (!showCompare && viewMode === "compare") {
+      setViewMode("result");
+    }
+  }, [showCompare, viewMode]);
+
+  const resultContent = useMemo(() => {
     if (!activeResponse) {
       return (
-        <div className="flex items-center justify-center h-full text-typography-tertiary small-body">
+        <div className="flex h-full items-center justify-center text-typography-tertiary small-body">
           No output to display. Run a query or algorithm to see results.
         </div>
       );
@@ -60,7 +83,37 @@ const OutputTabContent = observer(function OutputTabContent({
     return null;
   }, [activeAlgorithm, activeResponse]);
 
+  const outputContent = useMemo(() => {
+    if (
+      viewMode === "compare" &&
+      showCompare &&
+      previousRun &&
+      activeResponse &&
+      isAlgorithmVisualizationResult(activeResponse) &&
+      "data" in activeResponse
+    ) {
+      return (
+        <ComparePanel
+          previousRun={previousRun}
+          currentResponse={activeResponse}
+          currentTitle={activeAlgorithm?.title ?? "Current"}
+        />
+      );
+    }
+    return resultContent;
+  }, [
+    viewMode,
+    showCompare,
+    previousRun,
+    activeResponse,
+    activeAlgorithm,
+    resultContent,
+  ]);
+
   const dialogTitle = useMemo(() => {
+    if (viewMode === "compare" && showCompare) {
+      return "Compare Results";
+    }
     if (!activeResponse) {
       return "Output";
     }
@@ -76,7 +129,7 @@ const OutputTabContent = observer(function OutputTabContent({
       } processed)`;
     }
     return "Output";
-  }, [activeAlgorithm, activeResponse]);
+  }, [activeResponse, activeAlgorithm, viewMode, showCompare]);
 
   const onToggleLayerSlice = () => {
     if (!canSlice || !activeAlgorithm?.buildSliceSteps || !activeResponse) {
@@ -86,7 +139,10 @@ const OutputTabContent = observer(function OutputTabContent({
       clearLayerSlice();
       return;
     }
-    if (!isAlgorithmVisualizationResult(activeResponse) || !("data" in activeResponse)) {
+    if (
+      !isAlgorithmVisualizationResult(activeResponse) ||
+      !("data" in activeResponse)
+    ) {
       return;
     }
     const labelToId = buildLabelToIdMap(database!.graph.nodes);
@@ -108,6 +164,30 @@ const OutputTabContent = observer(function OutputTabContent({
   return (
     <>
       <div className="flex h-full min-h-0 flex-col">
+        {showCompare && (
+          <div className="mb-2 flex shrink-0 gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={viewMode === "result" ? "default" : "ghost"}
+              className={cn("h-8")}
+              onClick={() => setViewMode("result")}
+            >
+              Result
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={viewMode === "compare" ? "default" : "ghost"}
+              className={cn("h-8")}
+              onClick={() => setViewMode("compare")}
+              title={`Compare with previous: ${previousRun?.title}`}
+            >
+              <GitCompareArrows className="size-3.5" />
+              Compare
+            </Button>
+          </div>
+        )}
         <div className="min-h-0 flex-1 overflow-hidden">
           <div className="h-full min-h-0">{outputContent}</div>
         </div>
@@ -119,7 +199,7 @@ const OutputTabContent = observer(function OutputTabContent({
             />
             {!!activeResponse && (
               <div className="flex items-center gap-2">
-                {canSlice && (
+                {canSlice && viewMode === "result" && (
                   <Button
                     variant={layerSlice?.active ? "default" : "ghost"}
                     onClick={onToggleLayerSlice}

@@ -8,6 +8,7 @@ import {
 import { toast } from "sonner";
 
 import {
+  isAlgorithmVisualizationResult,
   isEdgeSchema,
   isNodeSchema,
   type EdgeSchema,
@@ -27,10 +28,28 @@ import {
   type LinkVisibilityDistanceRange,
   type NodeSizeScale,
 } from "./renderer/constant";
-import type { BaseGraphAlgorithm } from "./algorithms/implementations";
+import type {
+  BaseGraphAlgorithm,
+  BaseGraphAlgorithmResult,
+  GraphAlgorithmResult,
+} from "./algorithms/implementations";
 import type { LayerSliceState } from "./layer-slice";
 
 import { controller } from "~/MainController";
+
+export type PreviousAlgorithmRun = {
+  algorithm: BaseGraphAlgorithm;
+  response: GraphAlgorithmResult;
+  title: string;
+};
+
+export type DatabaseDrawerState = {
+  code: string;
+  activeAlgorithm: BaseGraphAlgorithm | null;
+  activeResponse: VisualizationResponse | null;
+  layerSlice: LayerSliceState | null;
+  previousRun: PreviousAlgorithmRun | null;
+};
 
 export type InitializedVisualizerStore = VisualizerStore & {
   database: NonNullable<VisualizerStore["database"]>;
@@ -76,6 +95,7 @@ export default class VisualizerStore {
       setCode: action,
       setActiveAlgorithm: action,
       setActiveResponse: action,
+      commitAlgorithmRun: action,
       setLayerSlice: action,
       clearLayerSlice: action,
       setLayerSliceIndex: action,
@@ -99,15 +119,7 @@ export default class VisualizerStore {
   simulationDecay = DEFAULT_GRAPH_RENDER_SETTINGS.simulationDecay;
   autoPauseOnSimulationEnd =
     DEFAULT_GRAPH_RENDER_SETTINGS.autoPauseOnSimulationEnd;
-  databaseDrawerStateMap: Record<
-    string,
-    {
-      code: string;
-      activeAlgorithm: BaseGraphAlgorithm | null;
-      activeResponse: VisualizationResponse | null;
-      layerSlice: LayerSliceState | null;
-    }
-  > = {};
+  databaseDrawerStateMap: Record<string, DatabaseDrawerState> = {};
 
   // ACTIONS
   initialize = async () => {
@@ -185,6 +197,7 @@ export default class VisualizerStore {
         activeAlgorithm: null,
         activeResponse: null,
         layerSlice: null,
+        previousRun: null,
       };
     });
 
@@ -275,6 +288,7 @@ export default class VisualizerStore {
         activeAlgorithm: null,
         activeResponse: null,
         layerSlice: null,
+        previousRun: null,
       };
     });
   };
@@ -457,6 +471,39 @@ export default class VisualizerStore {
     if (this.database == null) return;
     const drawer = this.databaseDrawerStateMap[this.database.name];
     drawer.activeResponse = activeResponse;
+    drawer.layerSlice = null;
+    // Queries (and clears) are not part of algorithm compare history.
+    if (
+      activeResponse == null ||
+      !isAlgorithmVisualizationResult(activeResponse)
+    ) {
+      drawer.previousRun = null;
+    }
+  };
+
+  /** Stash current algorithm result as previous, then set the new run. */
+  commitAlgorithmRun = (
+    algorithm: BaseGraphAlgorithm,
+    response: BaseGraphAlgorithmResult
+  ) => {
+    if (this.database == null) return;
+    const drawer = this.databaseDrawerStateMap[this.database.name];
+
+    if (
+      drawer.activeAlgorithm &&
+      drawer.activeResponse &&
+      isAlgorithmVisualizationResult(drawer.activeResponse) &&
+      "data" in drawer.activeResponse
+    ) {
+      drawer.previousRun = {
+        algorithm: drawer.activeAlgorithm,
+        response: drawer.activeResponse as GraphAlgorithmResult,
+        title: drawer.activeAlgorithm.title,
+      };
+    }
+
+    drawer.activeAlgorithm = algorithm;
+    drawer.activeResponse = response;
     drawer.layerSlice = null;
   };
 

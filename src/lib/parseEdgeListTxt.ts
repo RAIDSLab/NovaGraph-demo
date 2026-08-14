@@ -4,12 +4,44 @@
  * Supported lines:
  * - `#` comments and blank lines (ignored)
  * - `source target` or `source target weight` (whitespace-separated)
+ * - CSV-style `source,target` / `source, target` / `source,target,weight`
+ *   (optional header row with endpoint aliases is skipped)
  *
  * The first data row determines whether the list is weighted (2 vs 3 columns);
  * all subsequent data rows must match that arity.
  */
+
+import { resolveEndpointColumns } from "./resolveEdgeEndpoints";
+
 export function parseEdgeListTxtToEdgesCsv(text: string): string {
-  const dataRows = collectWhitespaceRows(text, "edge list");
+  const rawLines = text.split(/\r?\n/);
+  const dataRows: string[][] = [];
+  let sawHeader = false;
+
+  for (let lineNo = 0; lineNo < rawLines.length; lineNo++) {
+    const raw = rawLines[lineNo];
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const parts = splitEdgeListLine(line);
+    if (parts.length === 0) {
+      throw new Error(`Invalid empty edge-list line ${lineNo + 1}: "${raw}"`);
+    }
+
+    // Optional CSV/TXT header like "source,target" or "txId1 txId2"
+    if (!sawHeader && dataRows.length === 0 && looksLikeEndpointHeader(parts)) {
+      sawHeader = true;
+      continue;
+    }
+
+    if (parts.length < 2) {
+      throw new Error(
+        `Invalid edge-list line ${lineNo + 1}: expected at least 2 endpoint values (e.g. "0 1" or "0,1"), got "${line}"`
+      );
+    }
+
+    dataRows.push(parts.length > 3 ? [parts[0], parts[1], parts[2]] : parts);
+  }
 
   if (dataRows.length === 0) {
     throw new Error(
@@ -17,35 +49,23 @@ export function parseEdgeListTxtToEdgesCsv(text: string): string {
     );
   }
 
-  const normalized = dataRows.map((parts, index) => {
-    if (parts.length < 2) {
-      throw new Error(
-        `Invalid edge-list line ${index + 1} (need at least source and target)`
-      );
-    }
-    if (parts.length > 3) {
-      return [parts[0], parts[1], parts[2]];
-    }
-    return parts;
-  });
-
-  const columnCount = normalized[0].length;
+  const columnCount = dataRows[0].length;
   if (columnCount !== 2 && columnCount !== 3) {
     throw new Error(
       "Each edge line must have 2 columns (source target) or 3 (source target weight)"
     );
   }
 
-  for (let i = 1; i < normalized.length; i++) {
-    if (normalized[i].length !== columnCount) {
+  for (let i = 1; i < dataRows.length; i++) {
+    if (dataRows[i].length !== columnCount) {
       throw new Error(
-        `Inconsistent column count on edge line ${i + 1}: expected ${columnCount}, got ${normalized[i].length}`
+        `Inconsistent column count on edge line ${i + 1}: expected ${columnCount}, got ${dataRows[i].length}`
       );
     }
   }
 
   const header = columnCount === 3 ? "source,target,weight" : "source,target";
-  const body = normalized.map((cols) => cols.join(","));
+  const body = dataRows.map((cols) => cols.join(","));
   return [header, ...body].join("\n");
 }
 
@@ -98,6 +118,29 @@ export function parseNodesTxtToNodesCsv(text: string): string {
 
   const body = rows.slice(1).map((cols) => cols.join(","));
   return [header.join(","), ...body].join("\n");
+}
+
+/** Split an edge-list line on commas if present, otherwise on whitespace. */
+function splitEdgeListLine(line: string): string[] {
+  if (line.includes(",")) {
+    return line
+      .split(",")
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+  }
+  return line.split(/\s+/).filter(Boolean);
+}
+
+function looksLikeEndpointHeader(parts: string[]): boolean {
+  if (parts.length < 2) return false;
+  // Numeric-looking tokens are data, not headers
+  if (parts.every((p) => /^-?\d+(\.\d+)?$/.test(p))) return false;
+  try {
+    resolveEndpointColumns(parts);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function collectWhitespaceRows(text: string, label: string): string[][] {

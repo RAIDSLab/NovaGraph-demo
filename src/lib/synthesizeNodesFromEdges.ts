@@ -1,6 +1,9 @@
+import { resolveEndpointColumns } from "./resolveEdgeEndpoints";
+
 /**
  * Build a minimal nodes CSV from unique edge endpoints.
  * Primary key column is named `id`.
+ * Accepts common endpoint header aliases (source/target, id1/id2, 1/2, …).
  */
 export function synthesizeNodesFromEdges(edgesText: string): string {
   const lines = edgesText.trim().split("\n");
@@ -11,14 +14,7 @@ export function synthesizeNodesFromEdges(edgesText: string): string {
   }
 
   const edgeColumns = lines[0].split(",").map((col) => col.trim());
-  const sourceIdx = edgeColumns.indexOf("source");
-  const targetIdx = edgeColumns.indexOf("target");
-
-  if (sourceIdx === -1 || targetIdx === -1) {
-    throw new Error(
-      "Cannot infer nodes: edges.csv must have 'source' and 'target' columns"
-    );
-  }
+  const { sourceIdx, targetIdx } = resolveEndpointColumns(edgeColumns);
 
   const nodeIds = new Set<string>();
   for (let i = 1; i < lines.length; i++) {
@@ -31,7 +27,7 @@ export function synthesizeNodesFromEdges(edgesText: string): string {
 
   if (nodeIds.size === 0) {
     throw new Error(
-      "Cannot infer nodes: no non-empty source/target values found in edges.csv"
+      "Cannot infer nodes: no non-empty endpoint values found in edges.csv"
     );
   }
 

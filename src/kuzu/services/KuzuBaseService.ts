@@ -38,6 +38,10 @@ import {
   NON_PK_SCHEMA_TYPES,
   PK_SCHEMA_TYPES,
 } from "~/features/visualizer/schema-inputs";
+import { normalizeEdgesCsvText } from "~/lib/resolveEdgeEndpoints";
+import { parseGraphML } from "~/lib/parseGraphML";
+import { parseGEXF } from "~/lib/parseGEXF";
+import type { GraphEdgeRecord } from "~/lib/parseGraphRecords";
 
 type MaybePromise<T> = T | Promise<T>;
 
@@ -470,6 +474,9 @@ export default abstract class KuzuBaseService {
       `[CSV Import] Starting import for tables: ${nodeTableName}, ${edgeTableName}`
     );
 
+    // Normalize endpoint aliases (id1/id2, from/to, 1/2, …) to source/target
+    edgesText = normalizeEdgesCsvText(edgesText);
+
     // Parse CSV to get structure
     const nodesLines = nodesText.trim().split("\n");
     const edgesLines = edgesText.trim().split("\n");
@@ -732,40 +739,30 @@ export default abstract class KuzuBaseService {
   }
 
   /**
-   * Import graph data from JSON files
-   * Throws error on failure - frontend will handle error catching
-   * @param nodesText - Content of the nodes JSON file
-   * @param edgesText - Content of the edges JSON file
-   * @param nodeTableName - Name for the node table
-   * @param edgeTableName - Name for the edge table
-   * @param isDirected - Whether the graph is directed
-   * @returns Import result with success status and graph state
-   * @throws Error if import fails at any step
+   * Shared bulk import from in-memory node/edge object arrays.
+   * Used by JSON, GraphML, and GEXF importers.
    */
-  async importFromJSON(
+  async importFromRecords(
     databaseName: string,
-    nodesText: string,
-    edgesText: string,
+    nodesData: Record<string, unknown>[],
+    edgesData: GraphEdgeRecord[],
     nodeTableName: string,
     edgeTableName: string,
-    isDirected: boolean = true
+    isDirected: boolean = true,
+    logPrefix: string = "[Records Import]"
   ) {
     this.checkInitialization();
 
     console.log(
-      `[JSON Import] Starting import for tables: ${nodeTableName}, ${edgeTableName}`
+      `${logPrefix} Starting import for tables: ${nodeTableName}, ${edgeTableName}`
     );
 
-    // Parse JSON content
-    const nodesData = JSON.parse(nodesText);
-    const edgesData = JSON.parse(edgesText);
-
     if (!Array.isArray(nodesData) || nodesData.length === 0) {
-      throw new Error("Nodes JSON must contain at least one object");
+      throw new Error("Nodes must contain at least one object");
     }
 
     if (!Array.isArray(edgesData) || edgesData.length === 0) {
-      throw new Error("Edges JSON must contain at least one object");
+      throw new Error("Edges must contain at least one object");
     }
 
     const firstNode = nodesData[0];
@@ -773,7 +770,17 @@ export default abstract class KuzuBaseService {
       throw new Error("Node entries must be JSON objects");
     }
 
-    const nodeKeys = Object.keys(firstNode);
+    // Union of keys across nodes, with first node's key order first (PK first)
+    const nodeKeySet = new Set<string>(Object.keys(firstNode));
+    for (const node of nodesData) {
+      for (const key of Object.keys(node)) {
+        nodeKeySet.add(key);
+      }
+    }
+    const nodeKeys = [
+      ...Object.keys(firstNode),
+      ...[...nodeKeySet].filter((k) => !(k in firstNode)),
+    ];
     if (nodeKeys.length === 0) {
       throw new Error("Node objects must have at least one property");
     }
@@ -790,9 +797,21 @@ export default abstract class KuzuBaseService {
       throw new Error("Edge objects must contain 'from' and 'to' properties");
     }
 
-    const edgeProperties = Object.keys(firstEdge).filter(
+    const edgePropSet = new Set<string>();
+    for (const edge of edgesData) {
+      for (const key of Object.keys(edge)) {
+        if (key !== "from" && key !== "to") {
+          edgePropSet.add(key);
+        }
+      }
+    }
+    const firstEdgeAttrs = Object.keys(firstEdge).filter(
       (key) => key !== "from" && key !== "to"
     );
+    const edgePropertiesUnique = [
+      ...firstEdgeAttrs,
+      ...[...edgePropSet].filter((k) => !firstEdgeAttrs.includes(k)),
+    ];
 
     const virtualFS = isVirtualCapableService(this) ? this : null;
     const fs = virtualFS ? null : this.getFileSystem();
@@ -818,7 +837,7 @@ export default abstract class KuzuBaseService {
       fs!.writeFile(path, content);
     };
 
-    const deleteFile = async (path: string, warnPrefix = "[JSON Import]") => {
+    const deleteFile = async (path: string, warnPrefix = logPrefix) => {
       try {
         if (virtualFS) {
           await virtualFS.deleteVirtualFile(path);
@@ -830,19 +849,22 @@ export default abstract class KuzuBaseService {
       }
     };
 
-    await writeFile(nodesPath, nodesText);
-
-    // For edges, pre-canonicalize (from, to) for undirected graphs to avoid duplicates
-    let edgesContentToWrite = edgesText;
-    if (!isDirected) {
-      const edgesArray = JSON.parse(edgesText);
-      if (!Array.isArray(edgesArray)) {
-        throw new Error("Edges JSON must contain an array of objects");
+    // Normalize nodes so every object has the same keys (missing → null)
+    const normalizedNodes = nodesData.map((node) => {
+      const row: Record<string, unknown> = {};
+      for (const key of nodeKeys) {
+        row[key] = key in node ? node[key] : null;
       }
+      return row;
+    });
 
+    await writeFile(nodesPath, JSON.stringify(normalizedNodes));
+
+    let edgesToWrite: GraphEdgeRecord[] = edgesData;
+    if (!isDirected) {
       const seenPairs = new Set<string>();
-      const canonicalEdges = edgesArray
-        .map((edge: unknown): { from: string; to: string } & Record<string, unknown> | null => {
+      edgesToWrite = edgesData
+        .map((edge): GraphEdgeRecord | null => {
           if (
             typeof edge !== "object" ||
             edge === null ||
@@ -852,12 +874,9 @@ export default abstract class KuzuBaseService {
             return null;
           }
 
-          const from = String((edge as any)["from"]);
-          const to = String((edge as any)["to"]);
-
-          const [canonFrom, canonTo] =
-            from <= to ? [from, to] : [to, from];
-
+          const from = String(edge.from);
+          const to = String(edge.to);
+          const [canonFrom, canonTo] = from <= to ? [from, to] : [to, from];
           const key = `${canonFrom}::${canonTo}`;
           if (seenPairs.has(key)) {
             return null;
@@ -865,9 +884,7 @@ export default abstract class KuzuBaseService {
           seenPairs.add(key);
 
           const extraProps = Object.fromEntries(
-            Object.entries(edge as Record<string, unknown>).filter(
-              ([key]) => key !== "from" && key !== "to"
-            )
+            Object.entries(edge).filter(([k]) => k !== "from" && k !== "to")
           );
 
           return {
@@ -876,28 +893,31 @@ export default abstract class KuzuBaseService {
             ...extraProps,
           };
         })
-        .filter(
-          (
-            edge
-          ): edge is { from: string; to: string } & Record<string, unknown> =>
-            edge !== null
-        );
-
-      edgesContentToWrite = JSON.stringify(canonicalEdges);
+        .filter((edge): edge is GraphEdgeRecord => edge !== null);
     }
 
-    await writeFile(edgesPath, edgesContentToWrite);
+    // Normalize edge attribute keys
+    const normalizedEdges = edgesToWrite.map((edge) => {
+      const row: Record<string, unknown> = {
+        from: edge.from,
+        to: edge.to,
+      };
+      for (const key of edgePropertiesUnique) {
+        row[key] = key in edge ? edge[key] : null;
+      }
+      return row;
+    });
+
+    await writeFile(edgesPath, JSON.stringify(normalizedEdges));
 
     try {
-      // Install and load JSON extension (safe to retry)
       try {
         throwOnFailedQuery(await this.executeQuery("INSTALL json"));
         throwOnFailedQuery(await this.executeQuery("LOAD EXTENSION json"));
       } catch (error) {
-        console.log("[JSON Import] JSON extension load/install notice:", error);
+        console.log(`${logPrefix} JSON extension load/install notice:`, error);
       }
 
-      // Infer column types by scanning JSON
       const typeInferenceQuery = `
           LOAD FROM '${nodesPath}'
           RETURN ${nodeKeys.join(", ")}
@@ -916,26 +936,21 @@ export default abstract class KuzuBaseService {
       ].map((t) => t.toString());
       columnTypes.forEach((kuzuType: string, index: number) => {
         const colName = nodeKeys[index];
-        // Map Kuzu types to schema types
         let schemaType: string = "STRING";
 
         const typeUpper = kuzuType.toUpperCase();
         if (supportedTypes.includes(typeUpper)) {
           schemaType = typeUpper;
         } else if (typeUpper.startsWith("INT")) {
-          // Try scale down INT64/INT128 to INT32 if possible
-          // Error with value will be caught during COPY if not possible
           schemaType = "INT32";
         } else if (typeUpper.startsWith("UINT")) {
-          // Try scale down UINT64/UINT128 to UINT32 if possible
-          // Error with value will be caught during COPY if not possible
           schemaType = "UINT32";
         }
 
         inferredTypes[colName] = schemaType;
       });
 
-      console.log("[JSON Import] Inferred column types:", inferredTypes);
+      console.log(`${logPrefix} Inferred column types:`, inferredTypes);
 
       const propertyDefinitions = nodeKeys
         .map((col) => `${col} ${inferredTypes[col] ?? "STRING"}`)
@@ -953,46 +968,49 @@ export default abstract class KuzuBaseService {
       const copyNodesQuery = `COPY ${nodeTableName} FROM '${nodesPath}'`;
       throwOnFailedQuery(await this.executeQuery(copyNodesQuery));
 
-      const edgeTypeInferenceQuery = `
+      const inferredEdgeTypes: Record<string, string> = {};
+      if (edgePropertiesUnique.length > 0) {
+        const edgeTypeInferenceQuery = `
       LOAD FROM '${edgesPath}'
-      RETURN ${edgeProperties.join(", ")}
+      RETURN ${edgePropertiesUnique.join(", ")}
       LIMIT 1
     `;
 
-      console.log(
-        `[JSON Import] Inferring edge attribute types with query: ${edgeTypeInferenceQuery}`
-      );
+        console.log(
+          `${logPrefix} Inferring edge attribute types with query: ${edgeTypeInferenceQuery}`
+        );
 
-      const edgeColumnTypesResult = this.getColumnTypes(edgeTypeInferenceQuery);
-      const edgeColumnTypes = isPromiseLike(edgeColumnTypesResult)
-        ? await edgeColumnTypesResult
-        : edgeColumnTypesResult;
+        const edgeColumnTypesResult = this.getColumnTypes(
+          edgeTypeInferenceQuery
+        );
+        const edgeColumnTypes = isPromiseLike(edgeColumnTypesResult)
+          ? await edgeColumnTypesResult
+          : edgeColumnTypesResult;
 
-      const inferredEdgeTypes: Record<string, string> = {};
+        edgeColumnTypes.forEach((kuzuType: string, index: number) => {
+          const colName = edgePropertiesUnique[index];
+          let schemaType: string = "STRING";
 
-      edgeColumnTypes.forEach((kuzuType: string, index: number) => {
-        const colName = edgeProperties[index];
-        let schemaType: string = "STRING";
+          const typeUpper = kuzuType.toUpperCase();
+          if (supportedTypes.includes(typeUpper)) {
+            schemaType = typeUpper;
+          } else if (typeUpper.startsWith("INT")) {
+            schemaType = "INT32";
+          } else if (typeUpper.startsWith("UINT")) {
+            schemaType = "UINT32";
+          }
 
-        const typeUpper = kuzuType.toUpperCase();
-        if (supportedTypes.includes(typeUpper)) {
-          schemaType = typeUpper;
-        } else if (typeUpper.startsWith("INT")) {
-          schemaType = "INT32";
-        } else if (typeUpper.startsWith("UINT")) {
-          schemaType = "UINT32";
-        }
+          inferredEdgeTypes[colName] = schemaType;
+        });
+      }
 
-        inferredEdgeTypes[colName] = schemaType;
-      });
-
-      const edgePropertiesWithTypes = edgeProperties.map((prop) => ({
+      const edgePropertiesWithTypes = edgePropertiesUnique.map((prop) => ({
         name: prop,
         type: inferredEdgeTypes[prop] ?? "STRING",
       }));
 
       console.log(
-        "[JSON Import] Inferred edge attribute types:",
+        `${logPrefix} Inferred edge attribute types:`,
         edgePropertiesWithTypes
       );
 
@@ -1009,13 +1027,13 @@ export default abstract class KuzuBaseService {
 
       throwOnFailedQuery(await this.executeQuery(edgeTableQuery));
 
-        const copyEdgesQuery = `COPY ${edgeTableName} FROM '${edgesPath}'`;
-        throwOnFailedQuery(await this.executeQuery(copyEdgesQuery));
+      const copyEdgesQuery = `COPY ${edgeTableName} FROM '${edgesPath}'`;
+      throwOnFailedQuery(await this.executeQuery(copyEdgesQuery));
 
       const graphState = await this.snapshotGraphState();
 
       console.log(
-        `[JSON Import] Successfully imported graph with ${graphState.nodes.length} nodes and ${graphState.edges.length} edges`
+        `${logPrefix} Successfully imported graph with ${graphState.nodes.length} nodes and ${graphState.edges.length} edges`
       );
 
       return { databaseName, ...graphState };
@@ -1023,6 +1041,82 @@ export default abstract class KuzuBaseService {
       await deleteFile(nodesPath);
       await deleteFile(edgesPath);
     }
+  }
+
+  /**
+   * Import graph data from JSON files
+   */
+  async importFromJSON(
+    databaseName: string,
+    nodesText: string,
+    edgesText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected: boolean = true
+  ) {
+    const nodesData = JSON.parse(nodesText);
+    const edgesData = JSON.parse(edgesText);
+
+    if (!Array.isArray(nodesData)) {
+      throw new Error("Nodes JSON must contain an array of objects");
+    }
+    if (!Array.isArray(edgesData)) {
+      throw new Error("Edges JSON must contain an array of objects");
+    }
+
+    return this.importFromRecords(
+      databaseName,
+      nodesData,
+      edgesData as GraphEdgeRecord[],
+      nodeTableName,
+      edgeTableName,
+      isDirected,
+      "[JSON Import]"
+    );
+  }
+
+  /**
+   * Import graph data from a GraphML document
+   */
+  async importFromGraphML(
+    databaseName: string,
+    xmlText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected: boolean = true
+  ) {
+    const parsed = parseGraphML(xmlText);
+    return this.importFromRecords(
+      databaseName,
+      parsed.nodes,
+      parsed.edges,
+      nodeTableName,
+      edgeTableName,
+      isDirected,
+      "[GraphML Import]"
+    );
+  }
+
+  /**
+   * Import graph data from a GEXF document
+   */
+  async importFromGEXF(
+    databaseName: string,
+    xmlText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected: boolean = true
+  ) {
+    const parsed = parseGEXF(xmlText);
+    return this.importFromRecords(
+      databaseName,
+      parsed.nodes,
+      parsed.edges,
+      nodeTableName,
+      edgeTableName,
+      isDirected,
+      "[GEXF Import]"
+    );
   }
 
   protected checkInitialization(): asserts this is InitializedKuzuBaseService {

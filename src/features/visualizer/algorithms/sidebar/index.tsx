@@ -141,7 +141,7 @@ function AlgorithmSidebarControls({ open }: { open: boolean }) {
 
   return (
     <div
-      className={`bg-page isolate overflow-hidden before:absolute before:bg-gradient-to-br before:from-neutral-low/20 before:to-neutral/20 before:inset-0 before:-z-10 p-2 flex flex-col items-center gap-2 h-max absolute top-1/2 -translate-y-1/2 ${
+      className={`bg-page isolate overflow-hidden before:absolute before:bg-gradient-to-br before:from-neutral-low/20 before:to-neutral/20 before:inset-0 before:-z-10 p-2 flex flex-col items-center gap-2 h-max absolute top-20 z-20 ${
         !open || isMobile ? "left-0" : "left-[calc(var(--sidebar-width))]"
       } transition-all duration-200 ease-linear border border-l-transparent border-border rounded-tr-md rounded-br-md`}
     >

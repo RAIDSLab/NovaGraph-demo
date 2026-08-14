@@ -8,7 +8,7 @@ The project is part of UNSW Honours Thesis and the description can be found at [
 
 ## Features
 
-- **Define or Import Your Graph Data**: Construct nodes and/or edges through a schema-driven interface, specifying properties and metadata, or import existing graph data from CSV or JSON files.
+- **Define or Import Your Graph Data**: Construct nodes and/or edges through a schema-driven interface, specifying properties and metadata, or import existing graph data from CSV, JSON, TXT, GraphML, or GEXF files.
 - **Visualize Your Graph**: Render and explore large graphs smoothly using a high-performance WebGL visualizer.
 - **Run Algorithms and Execute Queries**: Select from a library of algorithms to analyze your graph, or write queries to test your hypotheses directly.
 - **Export Results for Further Analysis**: Save your findings as JSON or YAML format for further analysis.

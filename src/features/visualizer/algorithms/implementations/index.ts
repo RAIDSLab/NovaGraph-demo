@@ -47,4 +47,5 @@ export {
   type BaseGraphAlgorithmResult,
   type BaseGraphAlgorithm,
   type GraphAlgorithm,
+  type GraphAlgorithmResult,
 } from "./types";

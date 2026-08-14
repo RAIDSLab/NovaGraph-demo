@@ -196,7 +196,7 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
             value={showCodeTab ? tabValue : "output"}
             onValueChange={setTabValue}
             defaultValue={showCodeTab ? "code" : "output"}
-            className="flex h-[calc(var(--drawer-height)-48px)] min-h-0 overflow-hidden p-4"
+            className="flex h-[calc(var(--drawer-height)-48px)] min-h-0 overflow-hidden px-14 py-4"
           >
             {/* Content for Code - only shown when persistent (store in database) */}
             {showCodeTab && (

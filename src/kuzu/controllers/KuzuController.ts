@@ -484,6 +484,44 @@ class KuzuController {
     );
   }
 
+  async importFromGraphML(
+    databaseName: string,
+    xmlText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected: boolean = true
+  ) {
+    if (!this._service) {
+      throw new Error("Kuzu service not initialized");
+    }
+    return this._service.importFromGraphML(
+      databaseName,
+      xmlText,
+      nodeTableName,
+      edgeTableName,
+      isDirected
+    );
+  }
+
+  async importFromGEXF(
+    databaseName: string,
+    xmlText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected: boolean = true
+  ) {
+    if (!this._service) {
+      throw new Error("Kuzu service not initialized");
+    }
+    return this._service.importFromGEXF(
+      databaseName,
+      xmlText,
+      nodeTableName,
+      edgeTableName,
+      isDirected
+    );
+  }
+
   // -- Database Management (available for all four modes) --
 
   /**

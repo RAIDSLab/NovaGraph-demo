@@ -105,6 +105,22 @@ export type MainControllerDb = {
     isDirected?: boolean,
     persistent?: boolean
   ) => Promise<unknown>;
+  importFromGraphML: (
+    databaseName: string,
+    xmlText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected?: boolean,
+    persistent?: boolean
+  ) => Promise<unknown>;
+  importFromGEXF: (
+    databaseName: string,
+    xmlText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected?: boolean,
+    persistent?: boolean
+  ) => Promise<unknown>;
 };
 
 class MainController {
@@ -211,6 +227,8 @@ class MainController {
       loadDatabase: this._loadDatabase.bind(this),
       importFromCSV: this._importFromCSV.bind(this),
       importFromJSON: this._importFromJSON.bind(this),
+      importFromGraphML: this._importFromGraphML.bind(this),
+      importFromGEXF: this._importFromGEXF.bind(this),
     };
 
     this._IgraphController = this._createIgraphController();
@@ -647,6 +665,84 @@ class MainController {
       databaseName,
       nodesText,
       edgesText,
+      nodeTableName,
+      edgeTableName,
+      isDirected
+    );
+
+    return {
+      ...result,
+      directed: isDirected,
+    };
+  }
+
+  private async _importFromGraphML(
+    databaseName: string,
+    xmlText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected: boolean = true,
+    persistent: boolean = true
+  ) {
+    if (!persistent) {
+      const manager = this._inMemoryGraphManagers.get(databaseName);
+      if (!manager) {
+        throw new Error(`In-memory database '${databaseName}' does not exist`);
+      }
+      const snapshot = await manager.importFromGraphML(
+        xmlText,
+        nodeTableName,
+        edgeTableName,
+        isDirected
+      );
+      return {
+        databaseName,
+        ...snapshot,
+      };
+    }
+
+    const result = await kuzuController.importFromGraphML(
+      databaseName,
+      xmlText,
+      nodeTableName,
+      edgeTableName,
+      isDirected
+    );
+
+    return {
+      ...result,
+      directed: isDirected,
+    };
+  }
+
+  private async _importFromGEXF(
+    databaseName: string,
+    xmlText: string,
+    nodeTableName: string,
+    edgeTableName: string,
+    isDirected: boolean = true,
+    persistent: boolean = true
+  ) {
+    if (!persistent) {
+      const manager = this._inMemoryGraphManagers.get(databaseName);
+      if (!manager) {
+        throw new Error(`In-memory database '${databaseName}' does not exist`);
+      }
+      const snapshot = await manager.importFromGEXF(
+        xmlText,
+        nodeTableName,
+        edgeTableName,
+        isDirected
+      );
+      return {
+        databaseName,
+        ...snapshot,
+      };
+    }
+
+    const result = await kuzuController.importFromGEXF(
+      databaseName,
+      xmlText,
       nodeTableName,
       edgeTableName,
       isDirected
