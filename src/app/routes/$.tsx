@@ -1,13 +1,14 @@
-import { data, useNavigate } from "react-router";
+// import { data, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { ArrowLeft } from "lucide-react";
 
-import type { Route } from "./+types/$";
+// import type { Route } from "./+types/$";
 
 import { Button } from "~/components/ui/button";
 
-export async function loader(_: Route.LoaderArgs) {
-  return data("Not Found", { status: 404 });
-}
+// export async function loader(_: Route.LoaderArgs) {
+//   return data("Not Found", { status: 404 });
+// }
 
 export default function CatchAll() {
   const navigate = useNavigate();
