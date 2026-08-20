@@ -221,6 +221,29 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
     return outgoingEdges;
   }, [clickedNode, nodesMap, edges, directed]);
 
+  // Ego network for canvas labels: clicked node + all 1-hop neighbors
+  // (incoming and outgoing), independent of the sidebar's outgoing-only list.
+  const clickedNodeNeighborhood = useMemo(() => {
+    if (!clickedNode) return [] as GraphNode[];
+
+    const selectedNodeId = clickedNode.id;
+    const neighborIds = new Set<string>();
+
+    for (let i = 0; i < edges.length; i++) {
+      const edge = edges[i];
+      if (edge.source === selectedNodeId) neighborIds.add(edge.target);
+      if (edge.target === selectedNodeId) neighborIds.add(edge.source);
+    }
+
+    const neighborhood: GraphNode[] = [clickedNode];
+    for (const id of neighborIds) {
+      const neighbor = nodesMap.get(id);
+      if (neighbor) neighborhood.push(neighbor);
+    }
+
+    return neighborhood;
+  }, [clickedNode, nodesMap, edges]);
+
   // Change clicked node value when nodes change
   useEffect(() => {
     if (!clickedNode) return;
@@ -305,6 +328,7 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
           disableSimulation={false}
           onSimulationEnd={handleSimulationEnd}
           showDynamicLabels={showDynamicLabels}
+          showLabelsFor={clickedNode ? clickedNodeNeighborhood : undefined}
           showHoveredNodeLabel={true}
           hoveredNodeRingColor="#5f5ffa"
           renderHoveredNodeRing={true}

@@ -27,7 +27,7 @@ export const useZoomControls = (
   const zoomToNode = useCallback(
     (node: GraphNode | null | undefined) => {
       if (node) {
-        cosmographRef.current?.selectNode(node);
+        cosmographRef.current?.selectNode(node, true);
         cosmographRef.current?.zoomToNode(node);
       } else {
         fitToScreen();
