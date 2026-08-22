@@ -46,6 +46,8 @@ export default ALL_ALGORITHMS;
 export {
   type BaseGraphAlgorithmResult,
   type BaseGraphAlgorithm,
+  type CompareDescriptor,
+  type CompareFamily,
   type GraphAlgorithm,
   type GraphAlgorithmResult,
 } from "./types";

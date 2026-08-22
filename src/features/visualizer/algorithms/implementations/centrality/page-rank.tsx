@@ -27,6 +27,12 @@ export const pageRank = createGraphAlgorithm<PageRankOutputData>({
     return await igraphController.pageRank(arg1);
   },
   output: (props) => <PageRank {...props} />,
+  compare: {
+    kind: "node-score",
+    family: "centrality",
+    metric: "page-rank",
+    dataKey: "centralities",
+  },
 });
 
 function PageRank(props: GraphAlgorithmResult<PageRankOutputData>) {

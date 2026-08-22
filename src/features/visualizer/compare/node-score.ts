@@ -1,6 +1,12 @@
 import type { NodeScore } from "./kinds";
+import {
+  fractionalRank,
+  rankCorrelation,
+  rankPercentile,
+  type RankedNodeScore,
+} from "./rank";
 
-export type RankedNodeScore = NodeScore & { rank: number };
+export type { RankedNodeScore };
 
 export type NodeScoreDiffRow = {
   node: string;
@@ -10,6 +16,10 @@ export type NodeScoreDiffRow = {
   prevScore: number | null;
   currScore: number | null;
   scoreDelta: number | null;
+  /** Unit-free stand-in for score when the two runs use different metrics. */
+  prevPercentile: number | null;
+  currPercentile: number | null;
+  percentileDelta: number | null;
 };
 
 export type NodeScoreCompareResult = {
@@ -23,28 +33,6 @@ export type NodeScoreCompareResult = {
     biggestMovers: NodeScoreDiffRow[];
   };
 };
-
-function rankScores(scores: NodeScore[]): RankedNodeScore[] {
-  return [...scores]
-    .sort((a, b) => b.score - a.score)
-    .map((item, index) => ({ ...item, rank: index + 1 }));
-}
-
-/** Spearman rank correlation on shared nodes (by rank). */
-function spearmanCorrelation(rows: NodeScoreDiffRow[]): number | null {
-  const paired = rows.filter(
-    (row) => row.prevRank != null && row.currRank != null
-  );
-  const n = paired.length;
-  if (n < 2) return null;
-
-  let sumD2 = 0;
-  for (const row of paired) {
-    const d = (row.prevRank as number) - (row.currRank as number);
-    sumD2 += d * d;
-  }
-  return 1 - (6 * sumD2) / (n * (n * n - 1));
-}
 
 function topKOverlap(
   prev: RankedNodeScore[],
@@ -64,8 +52,8 @@ export function compareNodeScores(
   previous: NodeScore[],
   current: NodeScore[]
 ): NodeScoreCompareResult {
-  const prevRanked = rankScores(previous);
-  const currRanked = rankScores(current);
+  const prevRanked = fractionalRank(previous);
+  const currRanked = fractionalRank(current);
 
   const prevMap = new Map(prevRanked.map((item) => [item.node, item]));
   const currMap = new Map(currRanked.map((item) => [item.node, item]));
@@ -80,6 +68,11 @@ export function compareNodeScores(
     const prevScore = prev?.score ?? null;
     const currScore = curr?.score ?? null;
 
+    const prevPercentile =
+      prevRank == null ? null : rankPercentile(prevRank, prevRanked.length);
+    const currPercentile =
+      currRank == null ? null : rankPercentile(currRank, currRanked.length);
+
     rows.push({
       node,
       prevRank,
@@ -90,6 +83,12 @@ export function compareNodeScores(
       currScore,
       scoreDelta:
         prevScore != null && currScore != null ? currScore - prevScore : null,
+      prevPercentile,
+      currPercentile,
+      percentileDelta:
+        prevPercentile != null && currPercentile != null
+          ? currPercentile - prevPercentile
+          : null,
     });
   }
 
@@ -106,7 +105,8 @@ export function compareNodeScores(
   const biggestMovers = [...shared]
     .filter((row) => row.rankDelta != null)
     .sort(
-      (a, b) => Math.abs(b.rankDelta as number) - Math.abs(a.rankDelta as number)
+      (a, b) =>
+        Math.abs(b.rankDelta as number) - Math.abs(a.rankDelta as number)
     )
     .slice(0, 5);
 
@@ -117,7 +117,12 @@ export function compareNodeScores(
       sharedCount: shared.length,
       topK,
       topKOverlap: topK > 0 ? topKOverlap(prevRanked, currRanked, topK) : 0,
-      spearman: spearmanCorrelation(rows),
+      spearman: rankCorrelation(
+        shared.map((row) => ({
+          prevScore: row.prevScore as number,
+          currScore: row.currScore as number,
+        }))
+      ),
       biggestMovers,
     },
   };

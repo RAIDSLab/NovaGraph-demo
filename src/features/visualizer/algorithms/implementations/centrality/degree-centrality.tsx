@@ -17,6 +17,12 @@ export const degreeCentrality =
       return await igraphController.degreeCentrality();
     },
     output: (props) => <DegreeCentrality {...props} />,
+    compare: {
+      kind: "node-score",
+      family: "centrality",
+      metric: "degree",
+      dataKey: "centralities",
+    },
   });
 
 function DegreeCentrality(

@@ -18,6 +18,12 @@ export const harmonicCentrality =
       return await igraphController.harmonicCentrality();
     },
     output: (props) => <HarmonicCentrality {...props} />,
+    compare: {
+      kind: "node-score",
+      family: "centrality",
+      metric: "harmonic",
+      dataKey: "centralities",
+    },
   });
 
 function HarmonicCentrality(

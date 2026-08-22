@@ -34,6 +34,12 @@ export const louvain = createGraphAlgorithm<LouvainOutputData>({
     return await igraphController.louvainCommunities(arg1);
   },
   output: (props) => <Louvain {...props} />,
+  compare: {
+    kind: "partition",
+    family: "community",
+    metric: "louvain",
+    dataKey: "communities",
+  },
 });
 
 function Louvain(props: GraphAlgorithmResult<LouvainOutputData>) {

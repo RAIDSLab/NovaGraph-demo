@@ -43,7 +43,8 @@ export const gradientRgba = (value: number): Rgba => {
 };
 
 export const gradientRgbaByIndex = (idx: number): Rgba => {
-  const clamped = idx < 0 ? 0 : idx >= GRADIENT_LUT_SIZE ? GRADIENT_LUT_SIZE - 1 : idx;
+  const clamped =
+    idx < 0 ? 0 : idx >= GRADIENT_LUT_SIZE ? GRADIENT_LUT_SIZE - 1 : idx;
   return GRADIENT_LUT[clamped];
 };
 
@@ -59,7 +60,8 @@ export const rainbowRgba = (value: number): Rgba => {
 };
 
 export const rainbowRgbaByIndex = (idx: number): Rgba => {
-  const clamped = idx < 0 ? 0 : idx >= RAINBOW_LUT_SIZE ? RAINBOW_LUT_SIZE - 1 : idx;
+  const clamped =
+    idx < 0 ? 0 : idx >= RAINBOW_LUT_SIZE ? RAINBOW_LUT_SIZE - 1 : idx;
   return RAINBOW_LUT[clamped];
 };
 
@@ -73,3 +75,22 @@ export const NEUTRAL_RGBA: Rgba = cssToRgba("#75757580");
 export const CRITICAL_RGBA: Rgba = cssToRgba("#fd4958");
 export const PRIMARY_LOW_RGBA: Rgba = cssToRgba("#5f5ffad9");
 export const DISABLED_RGBA: Rgba = cssToRgba("#757575");
+
+/**
+ * Compare-diff palette, shared by the canvas and the panel legend. These are
+ * resolved ahead of the mode-specific colour scales so a diff reads the same
+ * regardless of how the underlying algorithm result is coloured.
+ */
+export const DIFF_CATEGORY_CSS = {
+  up: "#22c55e",
+  down: "#fd4958",
+  changed: "#f59e0b",
+  stable: "#94a3b8",
+  missing: "#a78bfa",
+} as const;
+
+export const DIFF_UP_RGBA: Rgba = cssToRgba(DIFF_CATEGORY_CSS.up);
+export const DIFF_DOWN_RGBA: Rgba = cssToRgba(DIFF_CATEGORY_CSS.down);
+export const DIFF_CHANGED_RGBA: Rgba = cssToRgba(DIFF_CATEGORY_CSS.changed);
+export const DIFF_STABLE_RGBA: Rgba = cssToRgba(DIFF_CATEGORY_CSS.stable);
+export const DIFF_MISSING_RGBA: Rgba = cssToRgba(DIFF_CATEGORY_CSS.missing);

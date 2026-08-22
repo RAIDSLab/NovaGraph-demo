@@ -7,6 +7,7 @@ import type VisualizerStore from "../store";
 import { useStore } from "../hooks/use-store";
 
 import type { BaseGraphAlgorithm } from "./implementations";
+import { buildParamLabel } from "./param-label";
 
 import { SidebarMenuButton } from "~/components/ui/sidebar";
 import { cn } from "~/lib/utils";
@@ -132,7 +133,11 @@ export default function InputDialog({
           args
         );
         startLoading("Applying Visualization");
-        commitAlgorithmRun(algorithm, algorithmResponse);
+        commitAlgorithmRun(
+          algorithm,
+          algorithmResponse,
+          buildParamLabel(algorithm.inputs, args)
+        );
         await renderDonePromise;
 
         const igraphTiming =

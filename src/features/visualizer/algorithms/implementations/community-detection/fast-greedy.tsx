@@ -21,6 +21,12 @@ export const fastGreedy = createGraphAlgorithm<FastGreedyOutputData>({
     return await igraphController.fastGreedyCommunities();
   },
   output: (props) => <FastGreedy {...props} />,
+  compare: {
+    kind: "partition",
+    family: "community",
+    metric: "fast-greedy",
+    dataKey: "communities",
+  },
 });
 
 function FastGreedy(props: GraphAlgorithmResult<FastGreedyOutputData>) {

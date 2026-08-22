@@ -10,6 +10,28 @@ export type BaseGraphAlgorithmResult = {
   type: "algorithm";
 } & IgraphBaseGraphAlgorithmResult;
 
+/**
+ * Opt-in metadata describing how a result may be diffed against another run.
+ * Declared here rather than sniffed from `data` field names so that unrelated
+ * algorithms sharing a field name (connectivity `components` versus modularity
+ * `communities`) are never compared against each other.
+ */
+export type CompareFamily =
+  | "centrality"
+  | "clustering"
+  | "community"
+  | "connectivity";
+
+export type CompareDescriptor = {
+  kind: "node-score" | "partition";
+  /** Only runs within the same family may be compared. */
+  family: CompareFamily;
+  /** Raw score deltas are only meaningful within the same metric. */
+  metric: string;
+  /** Field on `data` carrying the comparable payload. */
+  dataKey: "centralities" | "coefficients" | "communities" | "components";
+};
+
 export interface GraphAlgorithmResult<TData = unknown>
   extends BaseGraphAlgorithmResult {
   data: TData;
@@ -30,6 +52,8 @@ export interface BaseGraphAlgorithm<TResult = BaseGraphAlgorithmResult> {
   /** Optional post-run layer-slice builder (display labels → Kuzu IDs via ctx). */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   buildSliceSteps?: BuildSliceStepsFn<any>;
+  /** Present only on algorithms whose results support run-to-run comparison. */
+  compare?: CompareDescriptor;
 }
 
 /** TData describes the format/structure of the output in addition from
@@ -51,6 +75,7 @@ export function createGraphAlgorithm<TData>(config: {
   ) => Promise<Omit<GraphAlgorithmResult<TData>, "type">>;
   output: (props: GraphAlgorithmResult<TData>) => ReactNode;
   buildSliceSteps?: BuildSliceStepsFn<TData>;
+  compare?: CompareDescriptor;
 }): GraphAlgorithm<TData> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const algorithmWasmFn = async (controller: IgraphController, args: any[]) => {

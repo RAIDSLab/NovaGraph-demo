@@ -18,6 +18,12 @@ export const nodeStrengthCentrality =
       return await igraphController.strengthCentrality();
     },
     output: (props) => <NodeStrengthCentrality {...props} />,
+    compare: {
+      kind: "node-score",
+      family: "centrality",
+      metric: "node-strength",
+      dataKey: "centralities",
+    },
   });
 
 function NodeStrengthCentrality(

@@ -23,6 +23,12 @@ export const labelPropagation =
       return await igraphController.labelPropagation();
     },
     output: (props) => <LabelPropagation {...props} />,
+    compare: {
+      kind: "partition",
+      family: "community",
+      metric: "label-propagation",
+      dataKey: "communities",
+    },
   });
 
 function LabelPropagation(

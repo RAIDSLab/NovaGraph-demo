@@ -30,7 +30,10 @@ export default function ExportDropdownButton({
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-46">
         {ALL_EXPORTS.map((option) => (
-          <DropdownMenuItem onClick={() => option.export(activeResponse)}>
+          <DropdownMenuItem
+            key={option.value}
+            onClick={() => option.export(activeResponse)}
+          >
             <option.icon />
             <p>{option.label}</p>
           </DropdownMenuItem>

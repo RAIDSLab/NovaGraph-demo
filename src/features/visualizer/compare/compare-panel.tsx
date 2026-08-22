@@ -1,26 +1,31 @@
 import { useMemo, useState } from "react";
+import { TriangleAlert } from "lucide-react";
 import { useDynamicRowHeight, type RowComponentProps } from "react-window";
 
 import { ClickableNodeLabel } from "../algorithms/components/clickable-node-label";
 import { ResultsSearchInput } from "../algorithms/components/results-search-input";
 import { VirtualizedListPanel } from "../algorithms/components/virtualized-list-panel";
-import type { GraphAlgorithmResult } from "../algorithms/implementations";
+import type {
+  BaseGraphAlgorithm,
+  GraphAlgorithmResult,
+} from "../algorithms/implementations";
+import { runDisplayTitle } from "../algorithms/param-label";
+import { DIFF_CATEGORY_CSS } from "../renderer/lib/color-lut";
 import type { PreviousAlgorithmRun } from "../store";
+import type { GraphNode } from "../types";
 
 import {
-  canCompare,
-  extractNodeScores,
-  extractPartitions,
-  getCompareKind,
-} from "./kinds";
-import {
-  compareNodeScores,
-  type NodeScoreDiffRow,
-} from "./node-score";
-import {
-  comparePartitions,
-  type PartitionDisagreement,
+  DIFF_CATEGORIES,
+  DIFF_CATEGORY_LABELS,
+  type DiffOverlay,
+} from "./diff-overlay";
+import { shortNodeLabel } from "./labels";
+import type { NodeScoreCompareResult, NodeScoreDiffRow } from "./node-score";
+import type {
+  PartitionCompareResult,
+  PartitionDisagreement,
 } from "./partition";
+import { useCompareComputation } from "./use-compare-computation";
 
 function formatSigned(value: number | null, digits = 2): string {
   if (value == null || Number.isNaN(value)) return "—";
@@ -33,16 +38,52 @@ function formatNumber(value: number | null | undefined, digits = 2): string {
   return value.toFixed(digits);
 }
 
+function formatRank(value: number | null): string {
+  if (value == null) return "—";
+  // Tied nodes carry a fractional average rank.
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function formatPercent(value: number | null): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  return `${(value * 100).toFixed(0)}%`;
+}
+
+function formatSignedPercent(value: number | null): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  const points = value * 100;
+  const formatted = points.toFixed(0);
+  return points > 0 ? `+${formatted}pp` : `${formatted}pp`;
+}
+
 export function ComparePanel({
-  previousRun,
+  baseline,
   currentResponse,
+  currentAlgorithm,
   currentTitle,
+  currentParamLabel,
+  nodes,
+  graphRevision,
+  diffHighlight,
 }: {
-  previousRun: PreviousAlgorithmRun;
+  baseline: PreviousAlgorithmRun;
   currentResponse: GraphAlgorithmResult;
+  currentAlgorithm: BaseGraphAlgorithm | null;
   currentTitle: string;
+  currentParamLabel: string;
+  nodes: GraphNode[];
+  graphRevision: number;
+  diffHighlight: boolean;
 }) {
-  if (!canCompare(previousRun.response, currentResponse)) {
+  const computation = useCompareComputation({
+    previousResponse: baseline.response,
+    previousAlgorithm: baseline.algorithm,
+    currentResponse,
+    currentAlgorithm,
+    nodes,
+  });
+
+  if (!computation) {
     return (
       <div className="flex h-full items-center justify-center p-4 text-sm text-typography-secondary">
         Previous result is a different type and cannot be compared with the
@@ -51,7 +92,8 @@ export function ComparePanel({
     );
   }
 
-  const kind = getCompareKind(currentResponse);
+  const isStale = baseline.graphRevision !== graphRevision;
+  const { diff } = computation;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
@@ -63,51 +105,81 @@ export function ComparePanel({
           <span>
             Previous:{" "}
             <span className="font-medium text-typography-primary">
-              {previousRun.title}
+              {runDisplayTitle(baseline.title, baseline.paramLabel)}
             </span>
           </span>
           <span>
             Current:{" "}
             <span className="font-medium text-typography-primary">
-              {currentTitle}
+              {runDisplayTitle(currentTitle, currentParamLabel)}
             </span>
           </span>
         </div>
       </div>
 
-      {kind === "node-score" ? (
-        <NodeScoreCompareView
-          previousData={previousRun.response.data}
-          currentData={currentResponse.data}
-        />
-      ) : (
-        <PartitionCompareView
-          previousData={previousRun.response.data}
-          currentData={currentResponse.data}
-        />
+      {isStale && (
+        <div className="flex shrink-0 items-start gap-2 rounded-md border border-critical/40 bg-critical/10 px-3 py-2 text-sm text-typography-primary">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0 text-critical" />
+          <span>
+            The graph changed after the previous run, so differences below may
+            reflect the edit rather than the algorithms.
+          </span>
+        </div>
       )}
+
+      {diff.missingLabels.length > 0 && (
+        <p className="shrink-0 text-sm text-typography-secondary">
+          {diff.missingLabels.length} node
+          {diff.missingLabels.length === 1 ? "" : "s"} from these results are no
+          longer in the graph and are excluded from the canvas highlight.
+        </p>
+      )}
+
+      {diffHighlight && <DiffLegend diff={diff} />}
+
+      {computation.kind === "node-score" && computation.nodeScore ? (
+        <NodeScoreCompareView
+          result={computation.nodeScore}
+          showRawScoreDelta={computation.sameMetric}
+        />
+      ) : computation.partition ? (
+        <PartitionCompareView result={computation.partition} />
+      ) : null}
+    </div>
+  );
+}
+
+function DiffLegend({ diff }: { diff: DiffOverlay }) {
+  const present = DIFF_CATEGORIES.filter(
+    (category) => diff.counts[category] > 0
+  );
+  if (present.length === 0) return null;
+
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-typography-secondary">
+      <span className="font-medium">Canvas:</span>
+      {present.map((category) => (
+        <span key={category} className="flex items-center gap-1.5">
+          <span
+            className="size-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: DIFF_CATEGORY_CSS[category] }}
+          />
+          {DIFF_CATEGORY_LABELS[category]} ({diff.counts[category]})
+        </span>
+      ))}
     </div>
   );
 }
 
 function NodeScoreCompareView({
-  previousData,
-  currentData,
+  result,
+  showRawScoreDelta,
 }: {
-  previousData: unknown;
-  currentData: unknown;
+  result: NodeScoreCompareResult;
+  showRawScoreDelta: boolean;
 }) {
   const [search, setSearch] = useState("");
   const rowHeight = useDynamicRowHeight({ defaultRowHeight: 44 });
-
-  const result = useMemo(
-    () =>
-      compareNodeScores(
-        extractNodeScores(previousData),
-        extractNodeScores(currentData)
-      ),
-    [previousData, currentData]
-  );
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -127,9 +199,7 @@ function NodeScoreCompareView({
         <Stat
           label={`Top-${summary.topK} overlap`}
           value={
-            summary.topK > 0
-              ? `${summary.topKOverlap}/${summary.topK}`
-              : "—"
+            summary.topK > 0 ? `${summary.topKOverlap}/${summary.topK}` : "—"
           }
         />
         <Stat
@@ -143,14 +213,23 @@ function NodeScoreCompareView({
               ? "—"
               : summary.biggestMovers
                   .slice(0, 3)
-                  .map((row) => row.node.split(" ")[0])
+                  .map((row) => shortNodeLabel(row.node))
                   .join(", ")
           }
         />
       </div>
 
+      {!showRawScoreDelta && (
+        <p className="shrink-0 text-xs text-typography-secondary">
+          These runs measure different metrics, so scores are shown as
+          percentiles within each run rather than as a raw difference.
+        </p>
+      )}
+
       <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="font-semibold">Score differences</h3>
+        <h3 className="font-semibold">
+          {showRawScoreDelta ? "Score differences" : "Rank differences"}
+        </h3>
         <ResultsSearchInput
           value={search}
           onChange={setSearch}
@@ -170,31 +249,45 @@ function NodeScoreCompareView({
           rowComponent={NodeScoreDiffRowView}
           rowCount={filtered.length + 1}
           rowHeight={rowHeight}
-          rowProps={{ rows: filtered }}
+          rowProps={{ rows: filtered, showRawScoreDelta }}
         />
       )}
     </div>
   );
 }
 
+/** Narrow viewports keep only the node and the two deltas. */
+const SCORE_GRID = "grid grid-cols-3 gap-1 sm:grid-cols-7";
+const SCORE_NARROW_HIDDEN = "hidden px-2 py-1.5 sm:block";
+
 function NodeScoreDiffRowView({
   index,
   style,
   rows,
-}: RowComponentProps<{ rows: NodeScoreDiffRow[] }>) {
+  showRawScoreDelta,
+}: RowComponentProps<{
+  rows: NodeScoreDiffRow[];
+  showRawScoreDelta: boolean;
+}>) {
   if (index === 0) {
     return (
       <div
-        className="bg-tabdock grid grid-cols-7 gap-1 text-xs font-semibold sm:text-sm"
+        className={`bg-tabdock ${SCORE_GRID} text-xs font-semibold sm:text-sm`}
         style={style}
       >
         <span className="px-2 py-1.5">Node</span>
-        <span className="px-2 py-1.5">Rank⁻</span>
-        <span className="px-2 py-1.5">Rank⁺</span>
+        <span className={SCORE_NARROW_HIDDEN}>Rank⁻</span>
+        <span className={SCORE_NARROW_HIDDEN}>Rank⁺</span>
         <span className="px-2 py-1.5">ΔRank</span>
-        <span className="px-2 py-1.5">Score⁻</span>
-        <span className="px-2 py-1.5">Score⁺</span>
-        <span className="px-2 py-1.5">ΔScore</span>
+        <span className={SCORE_NARROW_HIDDEN}>
+          {showRawScoreDelta ? "Score⁻" : "Pct⁻"}
+        </span>
+        <span className={SCORE_NARROW_HIDDEN}>
+          {showRawScoreDelta ? "Score⁺" : "Pct⁺"}
+        </span>
+        <span className="px-2 py-1.5">
+          {showRawScoreDelta ? "ΔScore" : "ΔPct"}
+        </span>
       </div>
     );
   }
@@ -202,52 +295,47 @@ function NodeScoreDiffRowView({
   const row = rows[index - 1];
   return (
     <div
-      className="grid grid-cols-7 gap-1 text-xs not-odd:bg-neutral-low/50 sm:text-sm"
+      className={`${SCORE_GRID} text-xs not-odd:bg-neutral-low/50 sm:text-sm`}
       style={style}
     >
       <span className="min-w-0 px-2 py-1.5">
         <ClickableNodeLabel label={row.node} className="block w-full" />
       </span>
-      <span className="px-2 py-1.5 tabular-nums">{row.prevRank ?? "—"}</span>
-      <span className="px-2 py-1.5 tabular-nums">{row.currRank ?? "—"}</span>
+      <span className={`${SCORE_NARROW_HIDDEN} tabular-nums`}>
+        {formatRank(row.prevRank)}
+      </span>
+      <span className={`${SCORE_NARROW_HIDDEN} tabular-nums`}>
+        {formatRank(row.currRank)}
+      </span>
       <span className="px-2 py-1.5 tabular-nums">
         {row.rankDelta == null
           ? "—"
           : row.rankDelta > 0
-            ? `+${row.rankDelta}`
-            : String(row.rankDelta)}
+            ? `+${formatRank(row.rankDelta)}`
+            : formatRank(row.rankDelta)}
+      </span>
+      <span className={`${SCORE_NARROW_HIDDEN} tabular-nums`}>
+        {showRawScoreDelta
+          ? formatNumber(row.prevScore, 4)
+          : formatPercent(row.prevPercentile)}
+      </span>
+      <span className={`${SCORE_NARROW_HIDDEN} tabular-nums`}>
+        {showRawScoreDelta
+          ? formatNumber(row.currScore, 4)
+          : formatPercent(row.currPercentile)}
       </span>
       <span className="px-2 py-1.5 tabular-nums">
-        {formatNumber(row.prevScore, 4)}
-      </span>
-      <span className="px-2 py-1.5 tabular-nums">
-        {formatNumber(row.currScore, 4)}
-      </span>
-      <span className="px-2 py-1.5 tabular-nums">
-        {formatSigned(row.scoreDelta, 4)}
+        {showRawScoreDelta
+          ? formatSigned(row.scoreDelta, 4)
+          : formatSignedPercent(row.percentileDelta)}
       </span>
     </div>
   );
 }
 
-function PartitionCompareView({
-  previousData,
-  currentData,
-}: {
-  previousData: unknown;
-  currentData: unknown;
-}) {
+function PartitionCompareView({ result }: { result: PartitionCompareResult }) {
   const [search, setSearch] = useState("");
   const rowHeight = useDynamicRowHeight({ defaultRowHeight: 40 });
-
-  const result = useMemo(
-    () =>
-      comparePartitions(
-        extractPartitions(previousData),
-        extractPartitions(currentData)
-      ),
-    [previousData, currentData]
-  );
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -260,13 +348,15 @@ function PartitionCompareView({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="shrink-0 grid gap-1.5 text-sm sm:grid-cols-2">
-        <Stat
-          label="Membership agreement"
-          value={`${formatNumber(result.agreementPercent, 1)}% (${result.agreedCount}/${result.totalCompared})`}
-        />
+        <Stat label="ARI" value={formatNumber(result.ari, 3)} />
+        <Stat label="NMI" value={formatNumber(result.nmi, 3)} />
         <Stat
           label="Communities"
           value={`${result.prevCommunityCount} → ${result.currCommunityCount}`}
+        />
+        <Stat
+          label="Membership agreement"
+          value={`${formatNumber(result.agreementPercent, 1)}% (${result.agreedCount}/${result.totalCompared})`}
         />
         <Stat
           label="Modularity"
@@ -277,6 +367,11 @@ function PartitionCompareView({
           value={`${formatNumber(result.prevQuality)} → ${formatNumber(result.currQuality)}`}
         />
       </div>
+
+      <p className="shrink-0 text-xs text-typography-secondary">
+        ARI and NMI compare the two partitions without pairing communities, so
+        neither is penalised by relabelling.
+      </p>
 
       <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="font-semibold">
@@ -312,6 +407,17 @@ function PartitionCompareView({
   );
 }
 
+const PARTITION_GRID = "grid grid-cols-2 sm:grid-cols-4";
+const PARTITION_NARROW_HIDDEN = "hidden px-3 py-1.5 sm:block";
+
+const CHANGE_TYPE_LABELS: Record<PartitionDisagreement["changeType"], string> =
+  {
+    moved: "Moved",
+    split: "Split",
+    merged: "Merged",
+    vanished: "Gone",
+  };
+
 function PartitionDisagreeRowView({
   index,
   style,
@@ -320,12 +426,13 @@ function PartitionDisagreeRowView({
   if (index === 0) {
     return (
       <div
-        className="bg-tabdock grid grid-cols-3 text-sm font-semibold"
+        className={`bg-tabdock ${PARTITION_GRID} text-sm font-semibold`}
         style={style}
       >
         <span className="px-3 py-1.5">Node</span>
-        <span className="px-3 py-1.5">Prev community</span>
-        <span className="px-3 py-1.5">Curr community</span>
+        <span className={PARTITION_NARROW_HIDDEN}>Prev community</span>
+        <span className={PARTITION_NARROW_HIDDEN}>Curr community</span>
+        <span className="px-3 py-1.5">Change</span>
       </div>
     );
   }
@@ -333,14 +440,19 @@ function PartitionDisagreeRowView({
   const row = rows[index - 1];
   return (
     <div
-      className="grid grid-cols-3 text-sm not-odd:bg-neutral-low/50"
+      className={`${PARTITION_GRID} text-sm not-odd:bg-neutral-low/50`}
       style={style}
     >
       <span className="min-w-0 px-3 py-1.5">
         <ClickableNodeLabel label={row.node} className="block w-full" />
       </span>
-      <span className="px-3 py-1.5 tabular-nums">{row.prevCommunity + 1}</span>
-      <span className="px-3 py-1.5 tabular-nums">{row.currCommunity + 1}</span>
+      <span className={`${PARTITION_NARROW_HIDDEN} tabular-nums`}>
+        {row.prevCommunity + 1}
+      </span>
+      <span className={`${PARTITION_NARROW_HIDDEN} tabular-nums`}>
+        {row.currCommunity < 0 ? "—" : row.currCommunity + 1}
+      </span>
+      <span className="px-3 py-1.5">{CHANGE_TYPE_LABELS[row.changeType]}</span>
     </div>
   );
 }

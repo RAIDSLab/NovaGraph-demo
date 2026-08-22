@@ -34,6 +34,7 @@ import type {
   GraphAlgorithmResult,
 } from "./algorithms/implementations";
 import type { LayerSliceState } from "./layer-slice";
+import { shouldBumpGraphRevision } from "./graph-revision";
 
 import { controller } from "~/MainController";
 
@@ -41,15 +42,40 @@ export type PreviousAlgorithmRun = {
   algorithm: BaseGraphAlgorithm;
   response: GraphAlgorithmResult;
   title: string;
+  /** Inputs the run was invoked with, so equal-titled runs stay distinguishable. */
+  paramLabel: string;
+  /** Graph state the run was computed against; a mismatch makes a diff misleading. */
+  graphRevision: number;
 };
+
+/** Baselines older than this are dropped, keeping the picker short. */
+export const MAX_RUN_HISTORY = 5;
 
 export type DatabaseDrawerState = {
   code: string;
   activeAlgorithm: BaseGraphAlgorithm | null;
   activeResponse: VisualizationResponse | null;
+  /** Travels with the active run into `runHistory` once it is superseded. */
+  activeParamLabel: string;
+  activeGraphRevision: number;
   layerSlice: LayerSliceState | null;
-  previousRun: PreviousAlgorithmRun | null;
+  /** Most recent first. */
+  runHistory: PreviousAlgorithmRun[];
+  baselineIndex: number;
+  diffHighlight: boolean;
 };
+
+export const emptyDrawerState = (): DatabaseDrawerState => ({
+  code: "",
+  activeAlgorithm: null,
+  activeResponse: null,
+  activeParamLabel: "",
+  activeGraphRevision: 0,
+  layerSlice: null,
+  runHistory: [],
+  baselineIndex: 0,
+  diffHighlight: false,
+});
 
 export type InitializedVisualizerStore = VisualizerStore & {
   database: NonNullable<VisualizerStore["database"]>;
@@ -76,6 +102,8 @@ export default class VisualizerStore {
       linkVisibilityDistanceRange: computed,
       graphRenderSettings: computed,
       databaseDrawerStateMap: observable,
+      graphRevisionMap: observable,
+      graphRevision: computed,
       initialize: action,
       cleanup: action,
       setDatabase: action,
@@ -96,6 +124,8 @@ export default class VisualizerStore {
       setActiveAlgorithm: action,
       setActiveResponse: action,
       commitAlgorithmRun: action,
+      setBaselineIndex: action,
+      setDiffHighlight: action,
       setLayerSlice: action,
       clearLayerSlice: action,
       setLayerSliceIndex: action,
@@ -120,6 +150,14 @@ export default class VisualizerStore {
   autoPauseOnSimulationEnd =
     DEFAULT_GRAPH_RENDER_SETTINGS.autoPauseOnSimulationEnd;
   databaseDrawerStateMap: Record<string, DatabaseDrawerState> = {};
+  /**
+   * Per-database edit counter, bumped whenever a graph's topology is replaced.
+   * Algorithm runs record the value they saw, so a comparison spanning an edit
+   * can be flagged instead of being read as an algorithm difference. Kept per
+   * database rather than global so that merely switching databases — which
+   * edits nothing — does not invalidate a database's own baselines.
+   */
+  graphRevisionMap: Record<string, number> = {};
 
   // ACTIONS
   initialize = async () => {
@@ -192,13 +230,7 @@ export default class VisualizerStore {
       currentDatabaseName,
     ]);
     databases.forEach((dbName) => {
-      this.databaseDrawerStateMap[dbName] = {
-        code: "",
-        activeAlgorithm: null,
-        activeResponse: null,
-        layerSlice: null,
-        previousRun: null,
-      };
+      this.databaseDrawerStateMap[dbName] = emptyDrawerState();
     });
 
     const graph = this.buildGraphFromSnapshotState(graphSnapshotState);
@@ -243,6 +275,7 @@ export default class VisualizerStore {
         ...this.database,
         graph,
       };
+      this.bumpGraphRevision();
     });
 
     this.controller.notifyIgraphGraphChanged({
@@ -269,6 +302,7 @@ export default class VisualizerStore {
         graph,
       };
       this.addDatabase(name);
+      this.bumpGraphRevision();
     });
 
     this.controller.notifyIgraphGraphChanged({
@@ -283,13 +317,7 @@ export default class VisualizerStore {
   addDatabase = (database: string) => {
     runInAction(() => {
       this.databases = this.buildDatabases([...this.databases, database]);
-      this.databaseDrawerStateMap[database] = {
-        code: "",
-        activeAlgorithm: null,
-        activeResponse: null,
-        layerSlice: null,
-        previousRun: null,
-      };
+      this.databaseDrawerStateMap[database] = emptyDrawerState();
     });
   };
 
@@ -325,7 +353,8 @@ export default class VisualizerStore {
         currentDatabaseName,
       ]);
       
-      // Update current database
+      // Switching does not edit either graph, so the revision is left alone;
+      // the target database keeps whatever count its own edits produced.
       this.database = {
         name,
         persistent: this.controller.db.isDatabasePersistent(name),
@@ -353,14 +382,29 @@ export default class VisualizerStore {
       };
       
       const graph = this.buildGraphFromSnapshotState(graphSnapshotState);
-      
+
+      // Periodic refresh is not an edit. Switching databases is not an edit
+      // either — only a same-database topology change should increment.
+      const shouldBump = shouldBumpGraphRevision({
+        previousDatabaseName: this.database?.name,
+        nextDatabaseName: currentDatabaseName,
+        previousNodeCount: this.database?.graph.nodes.length ?? -1,
+        previousEdgeCount: this.database?.graph.edges.length ?? -1,
+        nextNodeCount: graph.nodes.length,
+        nextEdgeCount: graph.edges.length,
+      });
+
       runInAction(() => {
         // Update database list
         this.databases = this.buildDatabases([
           ...updatedDatabases,
           currentDatabaseName,
         ]);
-        
+
+        if (shouldBump) {
+          this.bumpGraphRevision();
+        }
+
         // Update current database if it changed
         if (currentDatabaseName) {
           this.database = {
@@ -393,6 +437,7 @@ export default class VisualizerStore {
         (databaseName) => databaseName !== name
       );
       delete this.databaseDrawerStateMap[name];
+      delete this.graphRevisionMap[name];
     });
   };
 
@@ -406,6 +451,12 @@ export default class VisualizerStore {
 
   get linkVisibilityDistanceRange(): LinkVisibilityDistanceRange {
     return [this.linkVisibilityDistanceNear, this.linkVisibilityDistanceFar];
+  }
+
+  /** Edit counter for the database currently open. */
+  get graphRevision(): number {
+    if (this.database == null) return 0;
+    return this.graphRevisionMap[this.database.name] ?? 0;
   }
 
   get graphRenderSettings(): GraphRenderSettings {
@@ -472,19 +523,22 @@ export default class VisualizerStore {
     const drawer = this.databaseDrawerStateMap[this.database.name];
     drawer.activeResponse = activeResponse;
     drawer.layerSlice = null;
+    drawer.diffHighlight = false;
     // Queries (and clears) are not part of algorithm compare history.
     if (
       activeResponse == null ||
       !isAlgorithmVisualizationResult(activeResponse)
     ) {
-      drawer.previousRun = null;
+      drawer.runHistory = [];
+      drawer.baselineIndex = 0;
     }
   };
 
-  /** Stash current algorithm result as previous, then set the new run. */
+  /** Push the current algorithm result onto the baseline history, then set the new run. */
   commitAlgorithmRun = (
     algorithm: BaseGraphAlgorithm,
-    response: BaseGraphAlgorithmResult
+    response: BaseGraphAlgorithmResult,
+    paramLabel = ""
   ) => {
     if (this.database == null) return;
     const drawer = this.databaseDrawerStateMap[this.database.name];
@@ -495,21 +549,54 @@ export default class VisualizerStore {
       isAlgorithmVisualizationResult(drawer.activeResponse) &&
       "data" in drawer.activeResponse
     ) {
-      drawer.previousRun = {
-        algorithm: drawer.activeAlgorithm,
-        response: drawer.activeResponse as GraphAlgorithmResult,
-        title: drawer.activeAlgorithm.title,
-      };
+      drawer.runHistory = [
+        {
+          algorithm: drawer.activeAlgorithm,
+          response: drawer.activeResponse as GraphAlgorithmResult,
+          title: drawer.activeAlgorithm.title,
+          paramLabel: drawer.activeParamLabel,
+          graphRevision: drawer.activeGraphRevision,
+        },
+        ...drawer.runHistory,
+      ].slice(0, MAX_RUN_HISTORY);
+      drawer.baselineIndex = 0;
     }
 
     drawer.activeAlgorithm = algorithm;
     drawer.activeResponse = response;
+    drawer.activeParamLabel = paramLabel;
+    drawer.activeGraphRevision = this.graphRevision;
     drawer.layerSlice = null;
+    drawer.diffHighlight = false;
+  };
+
+  private bumpGraphRevision = () => {
+    if (this.database == null) return;
+    const name = this.database.name;
+    this.graphRevisionMap[name] = (this.graphRevisionMap[name] ?? 0) + 1;
+  };
+
+  setBaselineIndex = (index: number) => {
+    if (this.database == null) return;
+    const drawer = this.databaseDrawerStateMap[this.database.name];
+    if (index < 0 || index >= drawer.runHistory.length) return;
+    drawer.baselineIndex = index;
+  };
+
+  setDiffHighlight = (active: boolean) => {
+    if (this.database == null) return;
+    const drawer = this.databaseDrawerStateMap[this.database.name];
+    drawer.diffHighlight = active;
+    // The diff overlay composites onto the algorithm colours, but layer slice
+    // replaces them outright, so the two cannot be shown at once.
+    if (active) drawer.layerSlice = null;
   };
 
   setLayerSlice = (layerSlice: LayerSliceState | null) => {
     if (this.database == null) return;
-    this.databaseDrawerStateMap[this.database.name].layerSlice = layerSlice;
+    const drawer = this.databaseDrawerStateMap[this.database.name];
+    drawer.layerSlice = layerSlice;
+    if (layerSlice?.active) drawer.diffHighlight = false;
   };
 
   clearLayerSlice = () => {

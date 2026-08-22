@@ -14,6 +14,7 @@ import {
   resolveLabel,
 } from "../layer-slice";
 import LayerSliceControls from "../layer-slice/LayerSliceControls";
+import { useCompareComputation } from "../compare/use-compare-computation";
 
 import GraphRendererHeader from "./header";
 import GraphRendererFooter from "./footer";
@@ -46,10 +47,26 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
     simulationDecay,
     autoPauseOnSimulationEnd,
   } = useStore();
-  const { activeResponse, layerSlice } =
-    databaseDrawerStateMap[database!.name];
+  const {
+    activeResponse,
+    activeAlgorithm,
+    layerSlice,
+    runHistory,
+    baselineIndex,
+    diffHighlight,
+  } = databaseDrawerStateMap[database!.name];
 
   const { nodes, edges, nodesMap, nodeTables, directed } = database.graph;
+
+  const baseline = diffHighlight ? runHistory[baselineIndex] : undefined;
+  const compareComputation = useCompareComputation({
+    previousResponse: baseline?.response,
+    previousAlgorithm: baseline?.algorithm,
+    currentResponse: diffHighlight ? activeResponse : null,
+    currentAlgorithm: activeAlgorithm,
+    nodes,
+  });
+  const diffCategories = compareComputation?.diff.categories ?? null;
 
   const { sizes, colors, mode } = useMemo(() => {
     const result: { sizes: SizeMap; colors: ColorMap; mode: number } = {
@@ -100,6 +117,7 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
       colors,
       sizes,
       directed: database.graph.directed,
+      diffCategories,
     }
   );
   const { zoomToNode } = useZoomControls(cosmographRef);

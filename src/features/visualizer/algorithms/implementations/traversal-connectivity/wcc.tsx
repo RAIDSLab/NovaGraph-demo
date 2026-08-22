@@ -23,6 +23,12 @@ export const wcc = createGraphAlgorithm<WCCOutputData>({
   },
   output: (props) => <WCC {...props} />,
   buildSliceSteps: wccSliceSteps,
+  compare: {
+    kind: "partition",
+    family: "connectivity",
+    metric: "wcc",
+    dataKey: "components",
+  },
 });
 
 function WCC(props: GraphAlgorithmResult<WCCOutputData>) {

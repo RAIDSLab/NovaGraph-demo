@@ -1,11 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-import { GitCompareArrows, Layers, Maximize2 } from "lucide-react";
+import {
+  Download,
+  GitCompareArrows,
+  Layers,
+  Maximize2,
+  Palette,
+} from "lucide-react";
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog";
 import { observer } from "mobx-react-lite";
 import { toast } from "sonner";
 
 import type { BaseGraphAlgorithm } from "../algorithms/implementations";
-import { ComparePanel, canCompare } from "../compare";
+import { baselineButtonLabel, runDisplayTitle } from "../algorithms/param-label";
+import {
+  ComparePanel,
+  canCompare,
+  exportCompareDiffCsv,
+  useCompareComputation,
+} from "../compare";
 import { QueryOutput } from "../queries";
 import ExportDropdownButton from "../export/export-dropdown-button";
 import { useStore } from "../hooks/use-store";
@@ -20,6 +32,12 @@ import CodeOutputTabs from "./tabs";
 
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogHeader } from "~/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { cn } from "~/lib/utils";
 
 type OutputViewMode = "result" | "compare";
@@ -38,10 +56,22 @@ const OutputTabContent = observer(function OutputTabContent({
 }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [viewMode, setViewMode] = useState<OutputViewMode>("result");
-  const { database, setLayerSlice, clearLayerSlice, databaseDrawerStateMap } =
-    useStore();
-  const { layerSlice, previousRun } =
-    databaseDrawerStateMap[database!.name];
+  const {
+    database,
+    setLayerSlice,
+    clearLayerSlice,
+    setBaselineIndex,
+    setDiffHighlight,
+    databaseDrawerStateMap,
+    graphRevision,
+  } = useStore();
+  const {
+    layerSlice,
+    runHistory,
+    baselineIndex,
+    diffHighlight,
+    activeParamLabel,
+  } = databaseDrawerStateMap[database!.name];
 
   const canSlice =
     !!activeAlgorithm?.buildSliceSteps &&
@@ -49,22 +79,68 @@ const OutputTabContent = observer(function OutputTabContent({
     isAlgorithmVisualizationResult(activeResponse) &&
     "data" in activeResponse;
 
-  const showCompare =
-    !!previousRun &&
+  const comparableResponse =
     !!activeResponse &&
     isAlgorithmVisualizationResult(activeResponse) &&
-    "data" in activeResponse &&
-    canCompare(previousRun.response, activeResponse);
+    "data" in activeResponse
+      ? activeResponse
+      : null;
+
+  /** Only same-family runs can act as a baseline for the current result. */
+  const comparableBaselines = useMemo(() => {
+    if (!comparableResponse) return [];
+    return runHistory
+      .map((run, index) => ({ run, index }))
+      .filter(({ run }) =>
+        canCompare(
+          { response: run.response, algorithm: run.algorithm },
+          { response: comparableResponse, algorithm: activeAlgorithm }
+        )
+      );
+  }, [runHistory, comparableResponse, activeAlgorithm]);
+
+  // A newly run algorithm may not share a family with the selected baseline;
+  // fall back to the most recent comparable run rather than hiding Compare.
+  const selectedBaseline =
+    comparableBaselines.find(({ index }) => index === baselineIndex) ??
+    comparableBaselines[0];
+  const baseline = selectedBaseline?.run;
+  const showCompare = !!baseline && !!comparableResponse;
 
   useEffect(() => {
     setViewMode("result");
-  }, [activeResponse, previousRun]);
+  }, [activeResponse]);
 
   useEffect(() => {
     if (!showCompare && viewMode === "compare") {
       setViewMode("result");
     }
   }, [showCompare, viewMode]);
+
+  // The canvas diff only makes sense while the compare view is open.
+  useEffect(() => {
+    if (viewMode !== "compare" && diffHighlight) {
+      setDiffHighlight(false);
+    }
+  }, [viewMode, diffHighlight, setDiffHighlight]);
+
+  const isBaselineStale =
+    !!baseline && baseline.graphRevision !== graphRevision;
+
+  useEffect(() => {
+    if (isBaselineStale && diffHighlight) {
+      setDiffHighlight(false);
+    }
+  }, [isBaselineStale, diffHighlight, setDiffHighlight]);
+
+  // Also drives the diff CSV export; the canvas overlay derives its own copy.
+  const diffComputation = useCompareComputation({
+    previousResponse: showCompare ? baseline?.response : null,
+    previousAlgorithm: baseline?.algorithm,
+    currentResponse: showCompare ? comparableResponse : null,
+    currentAlgorithm: activeAlgorithm,
+    nodes: database!.graph.nodes,
+  });
 
   const resultContent = useMemo(() => {
     if (!activeResponse) {
@@ -87,16 +163,19 @@ const OutputTabContent = observer(function OutputTabContent({
     if (
       viewMode === "compare" &&
       showCompare &&
-      previousRun &&
-      activeResponse &&
-      isAlgorithmVisualizationResult(activeResponse) &&
-      "data" in activeResponse
+      baseline &&
+      comparableResponse
     ) {
       return (
         <ComparePanel
-          previousRun={previousRun}
-          currentResponse={activeResponse}
+          baseline={baseline}
+          currentResponse={comparableResponse}
+          currentAlgorithm={activeAlgorithm}
           currentTitle={activeAlgorithm?.title ?? "Current"}
+          currentParamLabel={activeParamLabel}
+          nodes={database!.graph.nodes}
+          graphRevision={graphRevision}
+          diffHighlight={diffHighlight}
         />
       );
     }
@@ -104,9 +183,13 @@ const OutputTabContent = observer(function OutputTabContent({
   }, [
     viewMode,
     showCompare,
-    previousRun,
-    activeResponse,
+    baseline,
+    comparableResponse,
     activeAlgorithm,
+    activeParamLabel,
+    database,
+    graphRevision,
+    diffHighlight,
     resultContent,
   ]);
 
@@ -165,7 +248,7 @@ const OutputTabContent = observer(function OutputTabContent({
     <>
       <div className="flex h-full min-h-0 flex-col">
         {showCompare && (
-          <div className="mb-2 flex shrink-0 gap-1">
+          <div className="mb-2 flex shrink-0 flex-wrap items-center gap-1">
             <Button
               type="button"
               size="sm"
@@ -181,11 +264,47 @@ const OutputTabContent = observer(function OutputTabContent({
               variant={viewMode === "compare" ? "default" : "ghost"}
               className={cn("h-8")}
               onClick={() => setViewMode("compare")}
-              title={`Compare with previous: ${previousRun?.title}`}
+              title={`Compare with ${runDisplayTitle(baseline.title, baseline.paramLabel)}`}
             >
               <GitCompareArrows className="size-3.5" />
               Compare
             </Button>
+            {comparableBaselines.length > 1 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className={cn("h-8 shrink-0")}
+                    title={runDisplayTitle(
+                      baseline.title,
+                      baseline.paramLabel
+                    )}
+                  >
+                    Baseline:{" "}
+                    {baselineButtonLabel(
+                      baseline.title,
+                      baseline.paramLabel,
+                      activeAlgorithm?.title
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {comparableBaselines.map(({ run, index }) => (
+                    <DropdownMenuItem
+                      key={index}
+                      onClick={() => setBaselineIndex(index)}
+                      className={cn(
+                        index === selectedBaseline?.index && "font-medium"
+                      )}
+                    >
+                      {runDisplayTitle(run.title, run.paramLabel)}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         )}
         <div className="min-h-0 flex-1 overflow-hidden">
@@ -209,10 +328,43 @@ const OutputTabContent = observer(function OutputTabContent({
                     {layerSlice?.active ? "Exit Slice" : "Layer Slice"}
                   </Button>
                 )}
+                {viewMode === "compare" && (
+                  <Button
+                    variant={diffHighlight ? "default" : "ghost"}
+                    onClick={() => setDiffHighlight(!diffHighlight)}
+                    disabled={isBaselineStale}
+                    title={
+                      isBaselineStale
+                        ? "The graph changed after the baseline run, so a canvas diff would be misleading"
+                        : "Colour the canvas by what changed between the two runs"
+                    }
+                  >
+                    <Palette />
+                    {diffHighlight ? "Hide Diff" : "Highlight Diff"}
+                  </Button>
+                )}
                 <Button variant="ghost" onClick={() => setIsFullScreen(true)}>
                   <Maximize2 /> Fullscreen
                 </Button>
-                <ExportDropdownButton activeResponse={activeResponse} />
+                {viewMode === "compare" && diffComputation ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() =>
+                      exportCompareDiffCsv(
+                        diffComputation,
+                        runDisplayTitle(baseline.title, baseline.paramLabel),
+                        runDisplayTitle(
+                          activeAlgorithm?.title ?? "current",
+                          activeParamLabel
+                        )
+                      )
+                    }
+                  >
+                    <Download /> Export Diff
+                  </Button>
+                ) : (
+                  <ExportDropdownButton activeResponse={activeResponse} />
+                )}
               </div>
             )}
           </div>

@@ -23,6 +23,12 @@ export const scc = createGraphAlgorithm<SCCOutputData>({
   },
   output: (props) => <SCC {...props} />,
   buildSliceSteps: sccSliceSteps,
+  compare: {
+    kind: "partition",
+    family: "connectivity",
+    metric: "scc",
+    dataKey: "components",
+  },
 });
 
 function SCC(props: GraphAlgorithmResult<SCCOutputData>) {

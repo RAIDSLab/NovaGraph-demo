@@ -34,6 +34,12 @@ export const leiden = createGraphAlgorithm<LeidenOutputData>({
     return await igraphController.leidenCommunities(arg1);
   },
   output: (props) => <Leiden {...props} />,
+  compare: {
+    kind: "partition",
+    family: "community",
+    metric: "leiden",
+    dataKey: "communities",
+  },
 });
 
 function Leiden(props: GraphAlgorithmResult<LeidenOutputData>) {

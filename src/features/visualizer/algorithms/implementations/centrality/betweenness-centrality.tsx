@@ -18,6 +18,12 @@ export const betweennessCentrality =
       return await igraphController.betweennessCentrality();
     },
     output: (props) => <BetweennessCentrality {...props} />,
+    compare: {
+      kind: "node-score",
+      family: "centrality",
+      metric: "betweenness",
+      dataKey: "centralities",
+    },
   });
 
 function BetweennessCentrality(

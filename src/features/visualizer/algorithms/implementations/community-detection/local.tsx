@@ -17,6 +17,12 @@ export const localClusteringCoefficient =
       return await igraphController.localClusteringCoefficient();
     },
     output: (props) => <LocalClusteringCoefficient {...props} />,
+    compare: {
+      kind: "node-score",
+      family: "clustering",
+      metric: "local-clustering",
+      dataKey: "coefficients",
+    },
   });
 
 function LocalClusteringCoefficient(

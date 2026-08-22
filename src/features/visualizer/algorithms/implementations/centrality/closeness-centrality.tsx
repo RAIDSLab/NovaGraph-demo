@@ -18,6 +18,12 @@ export const closenessCentrality =
       return await igraphController.closenessCentrality();
     },
     output: (props) => <ClosenessCentrality {...props} />,
+    compare: {
+      kind: "node-score",
+      family: "centrality",
+      metric: "closeness",
+      dataKey: "centralities",
+    },
   });
 
 function ClosenessCentrality(

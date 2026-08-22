@@ -1,8 +1,14 @@
 import { useMemo } from "react";
 
 import type { GraphEdge, GraphNode } from "../../types";
+import type { DiffCategories, DiffCategory } from "../../compare/diff-overlay";
 import {
   CRITICAL_RGBA,
+  DIFF_CHANGED_RGBA,
+  DIFF_DOWN_RGBA,
+  DIFF_MISSING_RGBA,
+  DIFF_STABLE_RGBA,
+  DIFF_UP_RGBA,
   DISABLED_RGBA,
   GRADIENT_LUT_SIZE,
   GRADIENT_MAX_RGBA,
@@ -33,6 +39,23 @@ const COLOR_IDX_SENTINEL_DISABLED = 0xfffd;
 const COLOR_IDX_SENTINEL_CRITICAL = 0xfffc;
 const COLOR_IDX_SENTINEL_NEUTRAL = 0xfffb;
 const COLOR_IDX_SENTINEL_GRADIENT_MAX = 0xfffa;
+
+/** Compare-diff categories get their own sentinels so they survive any mode. */
+const DIFF_COLOR_SENTINELS: Record<DiffCategory, number> = {
+  up: 0xfff9,
+  down: 0xfff8,
+  changed: 0xfff7,
+  stable: 0xfff6,
+  missing: 0xfff5,
+};
+
+const DIFF_SENTINEL_RGBA = new Map<number, Rgba>([
+  [DIFF_COLOR_SENTINELS.up, DIFF_UP_RGBA],
+  [DIFF_COLOR_SENTINELS.down, DIFF_DOWN_RGBA],
+  [DIFF_COLOR_SENTINELS.changed, DIFF_CHANGED_RGBA],
+  [DIFF_COLOR_SENTINELS.stable, DIFF_STABLE_RGBA],
+  [DIFF_COLOR_SENTINELS.missing, DIFF_MISSING_RGBA],
+]);
 
 const parseEdgeColorMapKey = (key: string): [string, string] | null => {
   const sep = key.indexOf("-");
@@ -174,6 +197,8 @@ const nodeColorFromIndex = (mode: number, colorIdx: number): Rgba => {
   if (colorIdx === COLOR_IDX_SENTINEL_CRITICAL) return CRITICAL_RGBA;
   if (colorIdx === COLOR_IDX_SENTINEL_NEUTRAL) return NEUTRAL_RGBA;
   if (colorIdx === COLOR_IDX_SENTINEL_GRADIENT_MAX) return GRADIENT_MAX_RGBA;
+  const diffRgba = DIFF_SENTINEL_RGBA.get(colorIdx);
+  if (diffRgba) return diffRgba;
 
   switch (mode) {
     case MODE.COLOR_SHADE_DEFAULT:
@@ -191,11 +216,13 @@ const nodeColorFromIndex = (mode: number, colorIdx: number): Rgba => {
 export const hasVisualizationOverlay = (
   colors: ColorMap,
   sizes: SizeMap,
-  mode: number
+  mode: number,
+  diffCategories?: DiffCategories | null
 ): boolean =>
   mode !== MODE.COLOR_SHADE_DEFAULT ||
   Object.keys(colors).length > 0 ||
-  Object.keys(sizes).length > 0;
+  Object.keys(sizes).length > 0 ||
+  (diffCategories != null && Object.keys(diffCategories).length > 0);
 
 type GraphTopologyBase = {
   nodeIdToIndex: Map<string, number>;
@@ -240,7 +267,8 @@ const buildVisualizationOverlay = (
   colors: ColorMap,
   sizes: SizeMap,
   mode: number,
-  directed: boolean
+  directed: boolean,
+  diffCategories?: DiffCategories | null
 ): VisualizationOverlay => {
   const nodeCount = base.nodeIdToIndex.size;
   const nodeColorIndexBuffer = new Uint16Array(nodeCount);
@@ -270,6 +298,20 @@ const buildVisualizationOverlay = (
     if (size) {
       nodeSizeBuffer[idx] = size;
       nodeSizeAssigned[idx] = 1;
+    }
+  }
+
+  // Composited last so the diff wins over the algorithm colour for the nodes it
+  // covers, while every other node keeps its algorithm colour. Edges are left
+  // alone because a diff is node-level.
+  if (diffCategories) {
+    for (const key in diffCategories) {
+      const idx = base.nodeIdToIndex.get(key);
+      if (idx === undefined) continue;
+      nodeColorIndexBuffer[idx] = DIFF_COLOR_SENTINELS[diffCategories[key]];
+      nodeColorAssigned[idx] = 1;
+      // Keeps COLOR_SHADE_DEFAULT from shrinking diffed nodes to inactive size.
+      finiteColoredNodeFlags[idx] = 1;
     }
   }
 
@@ -329,6 +371,7 @@ export const useGraphRendererHelpers = ({
   sizes,
   mode,
   directed,
+  diffCategories,
 }: {
   nodes: GraphNode[];
   edges: GraphEdge[];
@@ -336,6 +379,8 @@ export const useGraphRendererHelpers = ({
   sizes: SizeMap;
   mode: number;
   directed: boolean;
+  /** Optional compare-diff layer composited over the algorithm colours. */
+  diffCategories?: DiffCategories | null;
 }): GraphRendererAccessors => {
   // Base: topology only — rebuilt when nodes/edges change (graph edit / load).
   const topologyBase = useMemo(
@@ -343,7 +388,12 @@ export const useGraphRendererHelpers = ({
     [nodes, edges]
   );
 
-  const hasOverlay = hasVisualizationOverlay(colors, sizes, mode);
+  const hasOverlay = hasVisualizationOverlay(
+    colors,
+    sizes,
+    mode,
+    diffCategories
+  );
 
   // Overlay: algorithm / query visualization — patched on top of base defaults.
   const overlay = useMemo(() => {
@@ -354,9 +404,19 @@ export const useGraphRendererHelpers = ({
       colors,
       sizes,
       mode,
-      directed
+      directed,
+      diffCategories
     );
-  }, [topologyBase, edges, colors, sizes, mode, directed, hasOverlay]);
+  }, [
+    topologyBase,
+    edges,
+    colors,
+    sizes,
+    mode,
+    directed,
+    diffCategories,
+    hasOverlay,
+  ]);
 
   return useMemo<GraphRendererAccessors>(() => {
     const fallbackColor = defaultNodeColorForMode(mode);

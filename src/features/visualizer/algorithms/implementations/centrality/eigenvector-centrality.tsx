@@ -17,6 +17,12 @@ export const eigenvectorCentrality =
       return await igraphController.eigenvectorCentrality();
     },
     output: (props) => <EigenvectorCentrality {...props} />,
+    compare: {
+      kind: "node-score",
+      family: "centrality",
+      metric: "eigenvector",
+      dataKey: "centralities",
+    },
   });
 
 function EigenvectorCentrality(
