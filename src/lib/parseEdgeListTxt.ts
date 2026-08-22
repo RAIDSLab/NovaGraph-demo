@@ -5,10 +5,11 @@
  * - `#` comments and blank lines (ignored)
  * - `source target` or `source target weight` (whitespace-separated)
  * - CSV-style `source,target` / `source, target` / `source,target,weight`
- *   (optional header row with endpoint aliases is skipped)
+ * - Optional header row with endpoint aliases; extra columns (e.g. link_id)
+ *   are kept as edge properties
  *
- * The first data row determines whether the list is weighted (2 vs 3 columns);
- * all subsequent data rows must match that arity.
+ * Without a header, the first data row determines whether the list is
+ * weighted (2 vs 3 columns); all subsequent data rows must match that arity.
  */
 
 import { resolveEndpointColumns } from "./resolveEdgeEndpoints";
@@ -16,7 +17,7 @@ import { resolveEndpointColumns } from "./resolveEdgeEndpoints";
 export function parseEdgeListTxtToEdgesCsv(text: string): string {
   const rawLines = text.split(/\r?\n/);
   const dataRows: string[][] = [];
-  let sawHeader = false;
+  let headerParts: string[] | null = null;
 
   for (let lineNo = 0; lineNo < rawLines.length; lineNo++) {
     const raw = rawLines[lineNo];
@@ -28,9 +29,13 @@ export function parseEdgeListTxtToEdgesCsv(text: string): string {
       throw new Error(`Invalid empty edge-list line ${lineNo + 1}: "${raw}"`);
     }
 
-    // Optional CSV/TXT header like "source,target" or "txId1 txId2"
-    if (!sawHeader && dataRows.length === 0 && looksLikeEndpointHeader(parts)) {
-      sawHeader = true;
+    // Optional CSV/TXT header like "source,target" or "link_id,source,target"
+    if (
+      headerParts === null &&
+      dataRows.length === 0 &&
+      looksLikeEndpointHeader(parts)
+    ) {
+      headerParts = parts;
       continue;
     }
 
@@ -40,13 +45,30 @@ export function parseEdgeListTxtToEdgesCsv(text: string): string {
       );
     }
 
-    dataRows.push(parts.length > 3 ? [parts[0], parts[1], parts[2]] : parts);
+    if (headerParts) {
+      dataRows.push(parts);
+    } else {
+      dataRows.push(parts.length > 3 ? [parts[0], parts[1], parts[2]] : parts);
+    }
   }
 
   if (dataRows.length === 0) {
     throw new Error(
       "TXT edge list must contain at least one edge (non-comment) line"
     );
+  }
+
+  if (headerParts) {
+    const columnCount = headerParts.length;
+    for (let i = 0; i < dataRows.length; i++) {
+      if (dataRows[i].length !== columnCount) {
+        throw new Error(
+          `Inconsistent column count on edge line ${i + 1}: expected ${columnCount} (from header), got ${dataRows[i].length}`
+        );
+      }
+    }
+    const body = dataRows.map((cols) => cols.join(","));
+    return [headerParts.join(","), ...body].join("\n");
   }
 
   const columnCount = dataRows[0].length;

@@ -65,13 +65,13 @@ function PageRank(props: GraphAlgorithmResult<PageRankOutputData>) {
                   Max Centrality Score:
                 </span>
                 <span className="min-w-0 text-right font-medium text-typography-primary break-words">
-                  {top.score.toFixed(2)}
+                  {top.score.toFixed(4)}
                 </span>
               </div>
               <div className="flex items-start justify-between gap-4">
                 <span className="text-typography-secondary">Damping:</span>
                 <span className="min-w-0 text-right font-medium text-typography-primary break-words">
-                  {damping}
+                  {Number(damping).toFixed(4)}
                 </span>
               </div>
               <div className="flex items-start justify-between gap-4">
@@ -89,13 +89,14 @@ function PageRank(props: GraphAlgorithmResult<PageRankOutputData>) {
           items={items}
           title="Centralities"
           scoreHeader="Centrality"
+          formatScore={(score) => score.toFixed(4)}
         />
       }
       footer={
         <ul className="text-typography-secondary text-sm list-disc list-inside space-y-1">
           <li>
             PageRank models a random surfer who follows links with probability{" "}
-            <span className="font-medium">{Number(damping) ?? 0.85}</span> and
+            <span className="font-medium">{Number(damping).toFixed(4)}</span> and
             “teleports” otherwise, nodes with more{" "}
             <span className="font-medium">high-quality incoming links</span>{" "}
             score higher.
@@ -104,7 +105,7 @@ function PageRank(props: GraphAlgorithmResult<PageRankOutputData>) {
             <li>
               <ClickableNodeLabel label={top.node} variant="inline" /> ranks
               highest with score{" "}
-              <span className="font-medium">{top.score.toFixed(2)}</span>.
+              <span className="font-medium">{top.score.toFixed(4)}</span>.
             </li>
           )}
           <li>

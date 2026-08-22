@@ -1,14 +1,16 @@
 import { useMemo } from "react";
+import { observer } from "mobx-react-lite";
 
 import CodeEditor from "../../../components/ui/code-editor";
 import type { ExecuteQueryResult } from "../types";
+import { useStore } from "../hooks/use-store";
 
 import CodeOutputTabs from "./tabs";
 
 import { Button } from "~/components/ui/button";
 import CopyButton from "~/components/ui/code-editor/copy-button";
 
-export default function CodeTabContent({
+export default observer(function CodeTabContent({
   code,
   setCode,
   runQuery,
@@ -23,6 +25,13 @@ export default function CodeTabContent({
   onErrorQuery: (r: ExecuteQueryResult) => void;
   enableOutput: boolean;
 }) {
+  const { database } = useStore();
+  const { nodeTables, edgeTables, nodes, edges } = database.graph;
+  const graph = useMemo(
+    () => ({ nodeTables, edgeTables, nodes, edges }),
+    [nodeTables, edgeTables, nodes, edges]
+  );
+
   // Memoised value
   const isReadyToSubmit = useMemo(() => !!code, [code]);
 
@@ -41,6 +50,7 @@ export default function CodeTabContent({
       <CodeEditor
         code={code}
         setCode={setCode}
+        graph={graph}
         className="flex-1 basis-0 min-h-0"
       />
       <div className="flex flex-wrap-reverse justify-between gap-2">
@@ -59,4 +69,4 @@ export default function CodeTabContent({
       </div>
     </div>
   );
-}
+});
