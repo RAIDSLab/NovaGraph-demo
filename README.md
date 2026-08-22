@@ -1,72 +1,97 @@
-# Welcome to NovaGraph V2.0 ⭐!
+# NovaGraph
 
-A fast, WebAssembly-powered graph analysis and visualization tool built for the browser.
+A **zero-install, local-first** visual graph analytics system for the browser.
 
-NovaGraph combines a WASM-compiled C++ graph engine (igraph + kuzu) with a React frontend stack, enabling near-native performance for graph exploration, querying, and algorithmic analysis directly in your browser. No specialized infrastructure or installation required.
+Graph analysis is no longer only for database and graph-processing experts. Students, domain scientists, and analysts need to inspect a graph, run standard algorithms, and understand the result. NovaGraph puts that whole path — import, analysis, visual interpretation, local persistence, and export — into one client-side application. There is nothing to install and no remote compute: open a tab, load a graph, and start exploring.
 
-The project is part of UNSW Honours Thesis and the description can be found at [TMS](https://thesis.cse.unsw.edu.au/topic/767).
+## Why NovaGraph
+
+Lightweight graph analysis needs two things:
+
+- **On-demand analysis.** Run a standard algorithm when you need it — PageRank, BFS, community detection — without first installing a graph database, provisioning a cloud service, or writing Cypher or analysis scripts.
+- **Interactive visualisation.** See the result on the graph itself: node colour, size, and highlighted structure stay linked to the algorithm output, not parked in a detached table or a second tool.
+
+NovaGraph is:
+
+- **Zero-install.** Open a browser tab, import a graph, and run common algorithms without installing software, managing a server, or writing query or analysis code.
+- **End-to-end.** Import, analyse, inspect on the canvas, persist a local workspace, and export all happen in one environment.
+- **Client-side.** [igraph](https://igraph.org/) runs analytics and [Kuzu](https://kuzudb.com/) stores and queries the graph in the browser; computation never leaves the device.
+- **In-memory or persistent.** Use a transient graph for a quick experiment, or save a workspace locally (IndexedDB) and reopen it later on the same device.
 
 ## Features
 
-- **Define or Import Your Graph Data**: Construct nodes and/or edges through a schema-driven interface, specifying properties and metadata, or import existing graph data from CSV, JSON, TXT, GraphML, or GEXF files.
-- **Visualize Your Graph**: Render and explore large graphs smoothly using a high-performance WebGL visualizer.
-- **Run Algorithms and Execute Queries**: Select from a library of algorithms to analyze your graph, or write queries to test your hypotheses directly.
-- **Export Results for Further Analysis**: Save your findings as JSON or YAML format for further analysis.
+- **Import or build a graph.** Load CSV, JSON, TXT, GraphML, or GEXF, or construct typed nodes and edges in a schema-driven editor.
+- **Run algorithms without code.** Traversal, path finding, centrality, community detection, and similarity — results are linked back to the canvas (node colour, size, highlighted edges) and a structured output table.
+- **Inspect, compare, export.** Step through BFS layers or DFS branches, compare runs (for example Degree vs Betweenness), and save findings as JSON or YAML.
+- **Local workspaces.** Keep graphs in memory for a session, or persist them in the browser and switch between workspaces without leaving the page.
+- **Optional Cypher.** Write Kuzu Cypher when you want a query; it is not required for the core analysis path.
 
-## Getting Started
+### Algorithms
 
-### Interactive Docker Build (Recommended)
+| Category | Algorithms |
+| --- | --- |
+| Traversal & connectivity | BFS, DFS, SCC, WCC, topological sort, random walk, check adjacency |
+| Path & reachability | Dijkstra (A–B, A–all), Bellman–Ford (A–B, A–all), Yen, MST, graph diameter, Eulerian path, Eulerian circuit |
+| Centrality | PageRank, betweenness, closeness, eigenvector, harmonic, degree, node strength |
+| Community detection | Louvain, Leiden, label propagation, fast greedy, k-core, local clustering coefficient, triangle count |
+| Similarity & matching | Jaccard, missing-edge prediction |
 
-We provide an interactive build script that lets you select the Kuzu database mode and build/run with Docker:
+## Architecture
+
+Four client-side layers, all in the browser:
+
+```
+Presentation     React UI + Cosmograph (WebGL)
+        │
+Orchestration    MainController  (unified db + algorithm API)
+        │
+   ┌────┴────┐
+Storage     Analytics
+Kuzu WASM   igraph WASM
+IndexedDB   Web Worker
+or in-memory
+```
+
+The presentation layer never talks to a backend. Orchestration hides whether the graph is persistent or in-memory: both expose the same snapshot interface, so algorithms and the canvas follow one workflow. After an algorithm finishes, results are mapped back onto the visualisation as encodings and as a result table. Persistent mode uses Kuzu-WASM in a Web Worker with IndexedDB; in-memory mode keeps the graph in RAM for fast temporary analysis.
+
+## Getting started
+
+### Live demo
+
+The fastest way to try NovaGraph is the hosted app:
+
+**https://novagraph-flame.vercel.app/**
+
+### Interactive Docker build (recommended)
 
 ```bash
-# Run the interactive script
 ./docker-build.sh
 ```
 
-The script will show you an interactive menu and wait for your input:
+The script asks for a Kuzu mode, then a service and action:
 
 ```
-╔════════════════════════════════════════════════════════╗
-║     NovaGraph - Kuzu Database Mode Selection          ║
-╚════════════════════════════════════════════════════════╝
-
-Please select the Kuzu database mode:
-
-  1. inmemory sync    - In-memory database with synchronous operations
-  2. inmemory async   - In-memory database with asynchronous operations
-  3. persistent sync  - Persistent database with synchronous operations
-  4. persistent async - Persistent database with asynchronous operations (default)
-
-Enter your choice [1-4] (default: 4):
+  1. inmemory sync
+  2. inmemory async
+  3. persistent sync
+  4. persistent async   (default)
 ```
 
-After selecting the mode, you'll be prompted to choose:
+- **Service:** `novagraph-dev` (development) or `novagraph-prod` (production)
+- **Action:** `run`, `build`, or `rebuild`
 
-- **Service**: `novagraph-dev` (development) or `novagraph-prod` (production)
-- **Action**: `run` (build and run), `build` (build only), or `rebuild` (rebuild without cache)
+Development is served at `http://localhost:5173`. Production is served at `http://localhost:3000`.
 
-**Default mode**: `4. persistent async`
+### Manual Docker build
 
-**Example usage:**
-
-- Development: Select mode → `novagraph-dev` → `run` (will build, copy WASM files, and start)
-- Production: Select mode → `novagraph-prod` → `run` (will build and start)
-
-### Manual Docker Build
-
-You can also build manually with Docker:
-
-#### Development
+**Development**
 
 ```bash
-# Build the image
 docker build -t novagraph-dev --target development .
 
-# Copy graph.js, graph.wasm and graph.d.ts. to local workspace
-docker run --rm -v $(pwd):/host novagraph-dev cp ./src/graph.js ./src/graph.wasm ./src/graph.d.ts /host/src/
+docker run --rm -v $(pwd):/host novagraph-dev \
+  cp ./src/graph.js ./src/graph.wasm ./src/graph.d.ts /host/src/
 
-# Run with volume mounting
 docker run -it --rm -v $(pwd):/src -w /src -p 5173:5173 -v /src/node_modules \
   -e NODE_ENV=development \
   -e KUZU_TYPE=persistent \
@@ -76,56 +101,41 @@ docker run -it --rm -v $(pwd):/src -w /src -p 5173:5173 -v /src/node_modules \
   novagraph-dev
 ```
 
-To debug with the image:
+Rebuild the image whenever `package.json`, `package-lock.json`, or the WASM sources (`wasm/`) change.
+
+**Production**
 
 ```bash
-docker run -it --entrypoint /bin/bash novagraph-dev
-```
-
-Your application will be available at `http://localhost:5173`.
-
-> Note: Rebuild the Docker image whenever you update package.json, package-lock.json, or the WASM source code (`wasm/`).
-
-#### Production
-
-```bash
-# Build with default configuration (persistent async)
-docker build -t novagraph-prod --target=production .
-
-# Or build with custom Kuzu configuration
 docker build -t novagraph-prod --target=production \
   --build-arg KUZU_TYPE=persistent \
   --build-arg KUZU_MODE=async \
   --build-arg KUZU_DB_PATH=/data/db .
 
-# Run the container
 docker run -it -p 3000:3000 novagraph-prod
 ```
 
-### Kuzu Configuration
+### Local development (without Docker)
 
-You can configure the Kuzu database mode at deployment time:
+```bash
+npm install
+npm run dev
+```
 
-- **KUZU_TYPE**: Database type
-  - `inmemory`: Data stored in memory, lost on restart
-  - `persistent` (default): Data persisted to IndexedDB in the browser
-- **KUZU_MODE**: Execution mode
-  - `sync`: Synchronous operations
-  - `async` (default): Asynchronous operations using Web Workers
+### Kuzu configuration
 
-- **KUZU_DB_PATH**: Optional database path for persistent mode
+| Variable | Values | Default | Meaning |
+| --- | --- | --- | --- |
+| `KUZU_TYPE` | `inmemory` \| `persistent` | `persistent` | In-memory (lost on refresh) vs IndexedDB |
+| `KUZU_MODE` | `sync` \| `async` | `async` | Main thread vs Web Worker |
+| `KUZU_DB_PATH` | path | — | Optional path for persistent mode |
 
-**Note**: For production builds, the configuration is baked into the build at build time. For development, the configuration is read at runtime.
+Production builds bake this in at compile time. Development reads it at runtime.
 
-The containerized application can be deployed to any platform that supports Docker, including:
+The containerized app can be deployed to any Docker-capable platform (AWS ECS, Google Cloud Run, Azure Container Apps, Fly.io, Railway, and similar).
 
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
+## Tech stack
 
----
-
-Built with ❤️ by unswdb.
+- **Frontend:** React, React Router, Tailwind CSS, MobX
+- **Visualization:** Cosmograph (WebGL)
+- **Storage & query:** Kuzu WASM
+- **Algorithms:** igraph compiled to WebAssembly with Emscripten
