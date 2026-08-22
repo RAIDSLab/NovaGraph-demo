@@ -15,14 +15,14 @@ NovaGraph is:
 
 - **Zero-install.** Open a browser tab, import a graph, and run common algorithms without installing software, managing a server, or writing query or analysis code.
 - **End-to-end.** Import, analyse, inspect on the canvas, persist a local workspace, and export all happen in one environment.
-- **Client-side.** [igraph](https://igraph.org/) runs analytics and [Kuzu](https://kuzudb.com/) stores and queries the graph in the browser; computation never leaves the device.
+- **Client-side.** [igraph](https://igraph.org/) runs analytics and [Kuzu](https://kuzudb.github.io/docs) stores and queries the graph in the browser; computation never leaves the device.
 - **In-memory or persistent.** Use a transient graph for a quick experiment, or save a workspace locally (IndexedDB) and reopen it later on the same device.
 
 ## Features
 
 - **Import or build a graph.** Load CSV, JSON, TXT, GraphML, or GEXF, or construct typed nodes and edges in a schema-driven editor.
 - **Run algorithms without code.** Traversal, path finding, centrality, community detection, and similarity — results are linked back to the canvas (node colour, size, highlighted edges) and a structured output table.
-- **Inspect, compare, export.** Step through BFS layers or DFS branches, compare runs (for example Degree vs Betweenness), and save findings as JSON or YAML.
+- **Inspect.** Algorithm outputs are drawn on the graph — node colour, size, and highlighted edges — so you can read the result by looking at the canvas.
 - **Local workspaces.** Keep graphs in memory for a session, or persist them in the browser and switch between workspaces without leaving the page.
 - **Optional Cypher.** Write Kuzu Cypher when you want a query; it is not required for the core analysis path.
 
