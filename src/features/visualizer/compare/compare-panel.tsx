@@ -218,13 +218,13 @@ function NodeScoreDiffRowView({
             : String(row.rankDelta)}
       </span>
       <span className="px-2 py-1.5 tabular-nums">
-        {formatNumber(row.prevScore)}
+        {formatNumber(row.prevScore, 4)}
       </span>
       <span className="px-2 py-1.5 tabular-nums">
-        {formatNumber(row.currScore)}
+        {formatNumber(row.currScore, 4)}
       </span>
       <span className="px-2 py-1.5 tabular-nums">
-        {formatSigned(row.scoreDelta)}
+        {formatSigned(row.scoreDelta, 4)}
       </span>
     </div>
   );

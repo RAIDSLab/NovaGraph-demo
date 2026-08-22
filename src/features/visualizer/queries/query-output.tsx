@@ -1,11 +1,8 @@
 import { useMemo } from "react";
-import {
-  List,
-  useDynamicRowHeight,
-  type RowComponentProps,
-} from "react-window";
+import { useDynamicRowHeight, type RowComponentProps } from "react-window";
 
 import type { ExecuteQueryResult } from "../types";
+import { VirtualizedListPanel } from "../algorithms/components/virtualized-list-panel";
 
 import { Button } from "~/components/ui/button";
 import type {
@@ -25,61 +22,63 @@ export default function QueryOutput({ data }: { data: ExecuteQueryResult }) {
   const { successQueries, failedQueries, success, message } = data;
 
   const failedQueryRowHeight = useDynamicRowHeight({
-    defaultRowHeight: 16,
+    defaultRowHeight: 48,
   });
 
   const successQueryRowHeight = useDynamicRowHeight({
-    defaultRowHeight: 16,
+    defaultRowHeight: 48,
   });
 
   return (
-    <div className="space-y-4">
-      {/* Query Status */}
-      <div className="flex items-center gap-2">
-        <span
-          className={`font-medium text-sm ${
-            success ? "text-positive" : "text-critical"
-          }`}
-        >
-          {success ? "✓" : "✗"} {message}
-        </span>
-      </div>
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      <div className="shrink-0 space-y-2">
+        {/* Query Status */}
+        <div className="flex items-center gap-2">
+          <span
+            className={`font-medium text-sm ${
+              success ? "text-positive" : "text-critical"
+            }`}
+          >
+            {success ? "✓" : "✗"} {message}
+          </span>
+        </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        <div className="flex justify-between">
-          <span className="text-typography-secondary">Nodes:</span>
-          <span className="text-typography-primary font-medium">
-            {data.nodes?.length || 0}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-typography-secondary">Edges:</span>
-          <span className="text-typography-primary font-medium">
-            {data.edges?.length || 0}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-typography-secondary">Node Schemas:</span>
-          <span className="text-typography-primary font-medium">
-            {data.nodeTables?.length || 0}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-typography-secondary">Edge Schemas:</span>
-          <span className="text-typography-primary font-medium">
-            {data.edgeTables?.length || 0}
-          </span>
+        {/* Statistics */}
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-typography-secondary">Nodes:</span>
+            <span className="text-typography-primary font-medium">
+              {data.nodes?.length || 0}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-typography-secondary">Edges:</span>
+            <span className="text-typography-primary font-medium">
+              {data.edges?.length || 0}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-typography-secondary">Node Schemas:</span>
+            <span className="text-typography-primary font-medium">
+              {data.nodeTables?.length || 0}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-typography-secondary">Edge Schemas:</span>
+            <span className="text-typography-primary font-medium">
+              {data.edgeTables?.length || 0}
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Failed Queries */}
       {failedQueries && failedQueries.length > 0 && (
-        <div className="space-y-3 pt-3">
-          <h3 className="font-semibold text-critical">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 pt-3">
+          <h3 className="shrink-0 font-semibold text-critical">
             Failed Queries ({failedQueries.length})
           </h3>
-          <List
+          <VirtualizedListPanel
             rowComponent={FailedQueryRowComponent}
             rowCount={failedQueries.length}
             rowHeight={failedQueryRowHeight}
@@ -90,11 +89,11 @@ export default function QueryOutput({ data }: { data: ExecuteQueryResult }) {
 
       {/* Success Queries */}
       {successQueries && successQueries.length > 0 && (
-        <div className="space-y-3 pt-3">
-          <h3 className="font-semibold text-positive">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 pt-3">
+          <h3 className="shrink-0 font-semibold text-positive">
             Success Queries ({successQueries.length})
           </h3>
-          <List
+          <VirtualizedListPanel
             rowComponent={SuccessQueryRowComponent}
             rowCount={successQueries.length}
             rowHeight={successQueryRowHeight}

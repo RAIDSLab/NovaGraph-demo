@@ -151,7 +151,7 @@ export const ImportCSV: ImportOption = {
   previewDescription:
     "Expected format for edges.csv; nodes.csv is optional and can be inferred",
   preview: CSVPreview,
-  note: `nodes.csv is **optional** — if omitted, Novagraph infers nodes from edge endpoints. ${EDGE_ENDPOINT_ALIAS_HELP} The 'weight' column in edges.csv is also optional; its presence signifies a weighted graph. Edges in a directed graph have directions. Edges in an undirected graph are bi-directional.`,
+  note: `nodes.csv is **optional** — if omitted, Novagraph infers nodes from edge endpoints. ${EDGE_ENDPOINT_ALIAS_HELP} The 'weight' column in edges.csv is also optional; its presence signifies a weighted graph. Extra columns such as \`link_id\` or \`edge_id\` are imported as edge properties and may appear in any position. Edges in a directed graph have directions. Edges in an undirected graph are bi-directional.`,
   inputs: [
     createTextInput({
       id: "database-name-csv",

@@ -96,6 +96,10 @@ export function parseGraphML(xmlText: string): ParsedGraphRecords {
       );
     }
     const props = readDataProps(edgeEl, keys, "edge");
+    const edgeId = edgeEl.getAttribute("id");
+    if (edgeId !== null && edgeId !== "") {
+      props.id = edgeId;
+    }
     const directedAttr = edgeEl.getAttribute("directed");
     if (directedAttr !== null) {
       props.directed = directedAttr.toLowerCase() === "true";

@@ -126,6 +126,10 @@ function collectEdges(
     const props: Record<string, unknown> = {
       ...readAttvalues(edgeEl, edgeDefs),
     };
+    const edgeId = edgeEl.getAttribute("id");
+    if (edgeId !== null && edgeId !== "") {
+      props.id = edgeId;
+    }
     const weight = edgeEl.getAttribute("weight");
     if (weight !== null && weight !== "" && props.weight === undefined) {
       props.weight = coerceAttrValue(weight, "float");

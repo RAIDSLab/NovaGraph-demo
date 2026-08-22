@@ -251,7 +251,7 @@ val pagerank(igraph_real_t damping)
     IGraphVector vec;
 
     std::stringstream stream;
-    stream << std::fixed << std::setprecision(2) << damping;
+    stream << std::fixed << std::setprecision(4) << damping;
 
     igraph_pagerank(&globalGraph, IGRAPH_PAGERANK_ALGO_PRPACK, vec.vec(), &value, igraph_vss_all(), IGRAPH_DIRECTED, damping, igraph_weights(), NULL);
 
