@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
 import { ChevronsLeft, ChevronsRight, Settings } from "lucide-react";
 import { observer } from "mobx-react-lite";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import {
   DEFAULT_GRAPH_RENDER_SETTINGS,
@@ -10,6 +10,7 @@ import {
   type NodeSizeScale,
 } from "./renderer/constant";
 import { useStore } from "./hooks/use-store";
+import { useVisualizerUi } from "./user-guide/ui-context";
 
 import { Input } from "~/components/form/input";
 import { Label } from "~/components/form/label";
@@ -27,11 +28,14 @@ import {
 import { useIsMobile } from "~/hooks/use-mobile";
 
 export default function SettingsSidebar() {
+  const { settingsSidebarOpen, setSettingsSidebarOpen } = useVisualizerUi();
+
   return (
     <SidebarProvider
       name="config-sidebar"
       className="relative isolate z-10"
-      defaultOpen={false}
+      open={settingsSidebarOpen}
+      onOpenChange={setSettingsSidebarOpen}
     >
       <SettingsSidebarWrapper />
     </SidebarProvider>
@@ -41,12 +45,25 @@ export default function SettingsSidebar() {
 const SettingsSidebarWrapper = observer(() => {
   const store = useStore();
   const isMobile = useIsMobile();
-  const { open, openMobile } = useSidebar();
+  const { open, openMobile, setOpenMobile } = useSidebar();
+  const { settingsSidebarOpen, revealId, revealAction } = useVisualizerUi();
+  const prevOpen = useRef(settingsSidebarOpen);
+
+  useEffect(() => {
+    const becameOpen = settingsSidebarOpen && !prevOpen.current;
+    prevOpen.current = settingsSidebarOpen;
+    if ((becameOpen || revealAction === "open-settings") && isMobile) {
+      setOpenMobile(true);
+    }
+  }, [settingsSidebarOpen, isMobile, revealAction, revealId, setOpenMobile]);
 
   return (
     <>
-      <Sidebar side="right">
-        <SettingsSidebarContent open={isMobile ? openMobile : open} store={store} />
+      <Sidebar side="right" data-guide="settings">
+        <SettingsSidebarContent
+          open={isMobile ? openMobile : open}
+          store={store}
+        />
       </Sidebar>
       <SettingsSidebarControls open={isMobile ? openMobile : open} />
     </>
@@ -79,7 +96,10 @@ const SettingsSidebarContent = observer(function SettingsSidebarContent({
           {Object.entries(GRAVITY).map(([key, val]) => (
             <div key={key} className="flex items-center gap-2">
               <RadioGroupItem value={String(val)} id={`gravity-${key}`} />
-              <Label htmlFor={`gravity-${key}`} className="capitalize font-normal">
+              <Label
+                htmlFor={`gravity-${key}`}
+                className="capitalize font-normal"
+              >
                 {key.replace(/_/g, " ").toLowerCase()}
               </Label>
             </div>
@@ -213,9 +233,13 @@ const SettingsSidebarContent = observer(function SettingsSidebarContent({
           <p className="text-xs text-typography-tertiary">
             Defaults: threshold{" "}
             {DEFAULT_GRAPH_RENDER_SETTINGS.largeGraphEdgeThreshold}, labels{" "}
-            {DEFAULT_GRAPH_RENDER_SETTINGS.defaultShowDynamicLabels ? "on" : "off"}
+            {DEFAULT_GRAPH_RENDER_SETTINGS.defaultShowDynamicLabels
+              ? "on"
+              : "off"}
             , LOD{" "}
-            {DEFAULT_GRAPH_RENDER_SETTINGS.linkVisibilityDistanceRange.join("–")}
+            {DEFAULT_GRAPH_RENDER_SETTINGS.linkVisibilityDistanceRange.join(
+              "–"
+            )}
             , decay {DEFAULT_GRAPH_RENDER_SETTINGS.simulationDecay}.
           </p>
         </div>

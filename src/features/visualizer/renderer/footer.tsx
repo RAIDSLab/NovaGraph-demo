@@ -37,7 +37,10 @@ export default function GraphRendererFooter({
   const { fitToScreen, zoomIn, zoomOut } = useZoomControls(cosmographRef);
 
   return (
-    <div className="flex justify-between p-4 w-full absolute bottom-0 left-0">
+    <div
+      data-guide="canvas"
+      className="flex justify-between p-4 w-full absolute bottom-0 left-0"
+    >
       {/* Left Side */}
       <div>
         {/* Play/Pause Simulation */}
