@@ -10,6 +10,8 @@ import GraphRenderer from "./renderer";
 import { StoreProvider } from "./hooks/use-store";
 import CodeOutputDrawer from "./drawer";
 import BenchmarkTimingOverlay from "./benchmark-timing-overlay";
+import { ProductTour, VisualizerUiProvider } from "./user-guide";
+
 import { isBenchmarkTimingEnabled } from "~/igraph/benchmark-timing";
 
 const Visualizer = observer(() => {
@@ -35,18 +37,21 @@ const Visualizer = observer(() => {
 
   return (
     <StoreProvider store={store}>
-      {isBenchmarkTimingEnabled() && <BenchmarkTimingOverlay />}
-      <div className="flex flex-col w-screen h-screen overflow-hidden">
-        <Header />
-        <div className="flex flex-row flex-1 [&>*]:h-[calc(100vh-64px)]">
-          <AlgorithmSidebar />
-          <main className="flex flex-col w-full">
-            <GraphRenderer className="relative flex-1 overflow-hidden" />
-            <CodeOutputDrawer />
-          </main>
-          <SettingsSidebar />
+      <VisualizerUiProvider>
+        {isBenchmarkTimingEnabled() && <BenchmarkTimingOverlay />}
+        <div className="flex flex-col w-screen h-screen overflow-hidden">
+          <Header />
+          <div className="flex flex-row flex-1 [&>*]:h-[calc(100vh-64px)]">
+            <AlgorithmSidebar />
+            <main className="flex flex-col w-full">
+              <GraphRenderer className="relative flex-1 overflow-hidden" />
+              <CodeOutputDrawer />
+            </main>
+            <SettingsSidebar />
+          </div>
         </div>
-      </div>
+        <ProductTour />
+      </VisualizerUiProvider>
     </StoreProvider>
   );
 });

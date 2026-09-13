@@ -1,5 +1,5 @@
 import { ChevronsLeft, ChevronsRight, Search, Waypoints } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 
 import {
@@ -9,6 +9,7 @@ import {
 import type { GraphNode } from "../../types";
 import { useStore } from "../../hooks/use-store";
 import type VisualizerStore from "../../store";
+import { useVisualizerUi } from "../../user-guide/ui-context";
 
 import {
   FilteredAlgorithmList,
@@ -28,8 +29,15 @@ import { useIsMobile } from "~/hooks/use-mobile";
 import { cn } from "~/lib/utils";
 
 export default function AlgorithmSidebar() {
+  const { algorithmSidebarOpen, setAlgorithmSidebarOpen } = useVisualizerUi();
+
   return (
-    <SidebarProvider name="algorithm-sidebar" className="relative isolate z-10">
+    <SidebarProvider
+      name="algorithm-sidebar"
+      className="relative isolate z-10"
+      open={algorithmSidebarOpen}
+      onOpenChange={setAlgorithmSidebarOpen}
+    >
       <AlgorithmSidebarWrapper />
     </SidebarProvider>
   );
@@ -37,14 +45,24 @@ export default function AlgorithmSidebar() {
 
 const AlgorithmSidebarWrapper = observer(() => {
   const isMobile = useIsMobile();
-  const { open, openMobile } = useSidebar();
+  const { open, openMobile, setOpenMobile } = useSidebar();
+  const { algorithmSidebarOpen, revealId, revealAction } = useVisualizerUi();
+  const prevOpen = useRef(algorithmSidebarOpen);
 
   const { controller, database, setActiveAlgorithm, setActiveResponse } =
     useStore();
 
+  useEffect(() => {
+    const becameOpen = algorithmSidebarOpen && !prevOpen.current;
+    prevOpen.current = algorithmSidebarOpen;
+    if ((becameOpen || revealAction === "open-algorithms") && isMobile) {
+      setOpenMobile(true);
+    }
+  }, [algorithmSidebarOpen, isMobile, revealAction, revealId, setOpenMobile]);
+
   return (
     <>
-      <Sidebar side="left">
+      <Sidebar side="left" data-guide="algorithms">
         <AlgorithmSidebarContent
           controller={controller}
           open={isMobile ? openMobile : open}

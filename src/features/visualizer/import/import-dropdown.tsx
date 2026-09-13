@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 
 import type { GraphDatabase } from "../types";
+import { useVisualizerUi } from "../user-guide/ui-context";
 
 import ImportDialog from "./import-dialog";
 
@@ -26,7 +27,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "~/components/ui/popover";
-import { Dialog, DialogTrigger } from "~/components/ui/dialog";
+import { Dialog } from "~/components/ui/dialog";
 import { cn } from "~/lib/utils";
 import { useAsyncFn } from "~/hooks/use-async-fn";
 import {
@@ -55,6 +56,7 @@ export default function ImportDropdown({
 }) {
   // Refs
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const { importDialogOpen, setImportDialogOpen } = useVisualizerUi();
 
   // States
   const [open, setOpen] = useState(false);
@@ -65,54 +67,71 @@ export default function ImportDropdown({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          ref={buttonRef}
-          variant="outline"
-          className={cn("flex justify-between items-center", className)}
-          title={`Database: ${database ? database.name : "Default"}`}
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            ref={buttonRef}
+            variant="outline"
+            data-guide="import"
+            className={cn("flex justify-between items-center", className)}
+            title={`Database: ${database ? database.name : "Default"}`}
+          >
+            <span className="truncate">
+              Database: <b>{database ? database.name : "Default"}</b>
+            </span>
+            <ChevronDown />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="p-0"
+          align="start"
+          style={{ width: triggerWidth }}
         >
-          <span className="truncate">
-            Database: <b>{database ? database.name : "Default"}</b>
-          </span>
-          <ChevronDown />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="p-0"
-        align="start"
-        style={{ width: triggerWidth }}
+          <Suspense fallback={<ImportListFallback />}>
+            <ImportListSelector
+              setOpen={setOpen}
+              setImportDialogOpen={setImportDialogOpen}
+              database={database}
+              databases={databases}
+              onSelectDatabase={onSelectDatabase}
+              onDeleteDatabase={onDeleteDatabase}
+            />
+          </Suspense>
+        </PopoverContent>
+      </Popover>
+      <Dialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        modal={true}
       >
-        <Suspense fallback={<ImportListFallback />}>
-          <ImportListSelector
-            setOpen={setOpen}
-            database={database}
-            databases={databases}
-            onSelectDatabase={onSelectDatabase}
-            onDeleteDatabase={onDeleteDatabase}
-          />
-        </Suspense>
-      </PopoverContent>
-    </Popover>
+        <ImportDialog
+          onClose={() => {
+            setImportDialogOpen(false);
+            setOpen(false);
+          }}
+        />
+      </Dialog>
+    </>
   );
 }
 
 function ImportListSelector({
   setOpen,
+  setImportDialogOpen,
   database,
   databases,
   onSelectDatabase,
   onDeleteDatabase,
 }: {
   setOpen: (b: boolean) => void;
+  setImportDialogOpen: (open: boolean) => void;
   database: GraphDatabase;
   databases: string[];
   onSelectDatabase: (name: string) => Promise<void>;
   onDeleteDatabase: (name: string) => Promise<void>;
 }) {
   const [selectingName, setSelectingName] = useState<string | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [alertDialogOpen, setAlertDialogOpen] = useState<string | null>(null);
 
   const { run: selectDatabase, isLoading: isSelecting } = useAsyncFn(
@@ -156,7 +175,7 @@ function ImportListSelector({
   };
 
   return (
-    <Dialog open={dialogOpen} onOpenChange={setDialogOpen} modal={true}>
+    <>
       <Command value={database?.name}>
         <CommandInput placeholder="Filter database..." />
         <CommandList>
@@ -276,23 +295,19 @@ function ImportListSelector({
             ))}
           </CommandGroup>
           <CommandGroup heading="Create Graph">
-            {/* Create graph options */}
-            <DialogTrigger asChild>
-              <CommandItem onSelect={() => setDialogOpen(true)}>
-                <Plus />
-                Create Graph
-              </CommandItem>
-            </DialogTrigger>
+            <CommandItem
+              onSelect={() => {
+                setImportDialogOpen(true);
+                setOpen(false);
+              }}
+            >
+              <Plus />
+              Create Graph
+            </CommandItem>
           </CommandGroup>
         </CommandList>
       </Command>
-      <ImportDialog
-        onClose={() => {
-          setDialogOpen(false);
-          setOpen(false);
-        }}
-      />
-    </Dialog>
+    </>
   );
 }
 

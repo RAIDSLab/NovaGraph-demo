@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useStore } from "../hooks/use-store";
 import type { ExecuteQueryResult } from "../types";
 import { convertQueryToVisualizationResult } from "../queries";
+import { useVisualizerUi } from "../user-guide/ui-context";
 
 import CodeTabContent from "./code";
 import OutputTabContent from "./output";
@@ -27,12 +28,12 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
     databaseDrawerStateMap,
     controller,
   } = useStore();
+  const { outputDrawerOpen, setOutputDrawerOpen } = useVisualizerUi();
   const { code, activeAlgorithm, activeResponse } =
     databaseDrawerStateMap[database!.name];
 
   // States
   const [tabValue, setTabValue] = useState("code");
-  const [isExpanded, setIsExpanded] = useState(false);
   const [drawerHeight, setDrawerHeight] = useState(DEFAULT_DRAWER_HEIGHT_PX);
   const [isResizing, setIsResizing] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -86,7 +87,7 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
   // Default to open when response internal value is changed
   useEffect(() => {
     if (!!activeResponse) {
-      setIsExpanded(true);
+      setOutputDrawerOpen(true);
       setDrawerHeight((height) =>
         Math.max(height, DEFAULT_DRAWER_HEIGHT_PX)
       );
@@ -94,7 +95,7 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
     } else {
       setTabValue(showCodeTab ? "code" : "output");
     }
-  }, [activeResponse, activeAlgorithm, showCodeTab]);
+  }, [activeResponse, activeAlgorithm, showCodeTab, setOutputDrawerOpen]);
 
   const onQuery = (result: ExecuteQueryResult) => {
     const visualizationResult = convertQueryToVisualizationResult(result);
@@ -148,10 +149,10 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
         className={cn(
           "relative",
           !isResizing && "transition-all duration-250 ease-in-out",
-          isExpanded ? "h-[var(--drawer-height)]" : "h-12"
+          outputDrawerOpen ? "h-[var(--drawer-height)]" : "h-12"
         )}
       >
-        {isExpanded && (
+        {outputDrawerOpen && (
           <div
             role="separator"
             aria-orientation="horizontal"
@@ -170,8 +171,9 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
 
         {/* Header */}
         <div
+          data-guide="output"
           className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-neutral-low border-t border-b border-border"
-          onClick={() => setIsExpanded((prev) => !prev)}
+          onClick={() => setOutputDrawerOpen(!outputDrawerOpen)}
         >
           <span className="text-sm text-typography-primary font-medium">
             {showCodeTab ? "Show Code/Output" : "Show Output"}
@@ -182,7 +184,7 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
             className="h-6 w-6 p-0 text-typography-primary hover:text-typography-secondary"
             title="Open Code/Output Panel"
           >
-            {isExpanded ? (
+            {outputDrawerOpen ? (
               <ChevronDown className="h-4 w-4" />
             ) : (
               <ChevronUp className="h-4 w-4" />
@@ -191,7 +193,7 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
         </div>
 
         {/* Content */}
-        {isExpanded && (
+        {outputDrawerOpen && (
           <Tabs
             value={showCodeTab ? tabValue : "output"}
             onValueChange={setTabValue}
