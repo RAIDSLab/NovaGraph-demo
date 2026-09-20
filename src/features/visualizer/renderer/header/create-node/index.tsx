@@ -59,12 +59,8 @@ export default function CreateNode({
   };
 
   useEffect(() => {
-<<<<<<< Updated upstream
     if (createNodeRequestId === 0) return;
     if (createNodeRequestId === handledRequestId.current) return;
-=======
-    if (createNodeRequestId <= handledRequestId.current) return;
->>>>>>> Stashed changes
     handledRequestId.current = createNodeRequestId;
     if (!isNonEmpty(nodeTables)) {
       setDialogStatus({ createNode: false, createNodeSchema: true });

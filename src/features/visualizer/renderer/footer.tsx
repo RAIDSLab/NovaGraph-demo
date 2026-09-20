@@ -38,13 +38,8 @@ export default function GraphRendererFooter({
 
   return (
     <div
-<<<<<<< Updated upstream
       data-guide="canvas"
       className="flex justify-between p-4 w-full absolute bottom-0 left-0"
-=======
-      className="flex justify-between p-4 w-full absolute bottom-0 left-0"
-      data-guide="canvas"
->>>>>>> Stashed changes
     >
       {/* Left Side */}
       <div>

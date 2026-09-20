@@ -1,7 +1,3 @@
-<<<<<<< Updated upstream
-=======
-import { useEffect, type ReactNode } from "react";
->>>>>>> Stashed changes
 import { ChevronsLeft, ChevronsRight, Settings } from "lucide-react";
 import { observer } from "mobx-react-lite";
 import { useEffect, useRef, type ReactNode } from "react";
@@ -40,10 +36,6 @@ export default function SettingsSidebar() {
       className="relative isolate z-10"
       open={settingsSidebarOpen}
       onOpenChange={setSettingsSidebarOpen}
-<<<<<<< Updated upstream
-=======
-      data-guide="settings"
->>>>>>> Stashed changes
     >
       <SettingsSidebarWrapper />
     </SidebarProvider>
@@ -54,7 +46,6 @@ const SettingsSidebarWrapper = observer(() => {
   const store = useStore();
   const isMobile = useIsMobile();
   const { open, openMobile, setOpenMobile } = useSidebar();
-<<<<<<< Updated upstream
   const { settingsSidebarOpen, revealId, revealAction } = useVisualizerUi();
   const prevOpen = useRef(settingsSidebarOpen);
 
@@ -65,14 +56,6 @@ const SettingsSidebarWrapper = observer(() => {
       setOpenMobile(true);
     }
   }, [settingsSidebarOpen, isMobile, revealAction, revealId, setOpenMobile]);
-=======
-  const { settingsSidebarOpen } = useVisualizerUi();
-
-  useEffect(() => {
-    if (!isMobile) return;
-    setOpenMobile(settingsSidebarOpen);
-  }, [settingsSidebarOpen, isMobile, setOpenMobile]);
->>>>>>> Stashed changes
 
   return (
     <>

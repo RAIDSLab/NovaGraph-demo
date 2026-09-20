@@ -1,9 +1,5 @@
 import { ChevronsLeft, ChevronsRight, Search, Waypoints } from "lucide-react";
-<<<<<<< Updated upstream
 import { useEffect, useRef, useState } from "react";
-=======
-import { useEffect, useState } from "react";
->>>>>>> Stashed changes
 import { observer } from "mobx-react-lite";
 
 import {
@@ -41,10 +37,6 @@ export default function AlgorithmSidebar() {
       className="relative isolate z-10"
       open={algorithmSidebarOpen}
       onOpenChange={setAlgorithmSidebarOpen}
-<<<<<<< Updated upstream
-=======
-      data-guide="algorithms"
->>>>>>> Stashed changes
     >
       <AlgorithmSidebarWrapper />
     </SidebarProvider>
@@ -54,17 +46,8 @@ export default function AlgorithmSidebar() {
 const AlgorithmSidebarWrapper = observer(() => {
   const isMobile = useIsMobile();
   const { open, openMobile, setOpenMobile } = useSidebar();
-<<<<<<< Updated upstream
   const { algorithmSidebarOpen, revealId, revealAction } = useVisualizerUi();
   const prevOpen = useRef(algorithmSidebarOpen);
-=======
-  const { algorithmSidebarOpen } = useVisualizerUi();
-
-  useEffect(() => {
-    if (!isMobile) return;
-    setOpenMobile(algorithmSidebarOpen);
-  }, [algorithmSidebarOpen, isMobile, setOpenMobile]);
->>>>>>> Stashed changes
 
   const { controller, database, setActiveAlgorithm, setActiveResponse } =
     useStore();
