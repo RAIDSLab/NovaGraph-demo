@@ -5,52 +5,66 @@ import type { GraphEdge, GraphNode } from "../../types";
 import { useStore } from "../../hooks/use-store";
 
 const ZOOM_DURATION = 500;
+const ZOOM_FACTOR = 1.5;
 const SMALLEST_ZOOM_LEVEL = 0.1;
 
+type CosmographInstance = CosmographRef<GraphNode, GraphEdge>;
+
+const resolveZoomLevel = (graph: CosmographInstance | null | undefined) => {
+  const zoomLevel = graph?.getZoomLevel();
+  return typeof zoomLevel === "number" && Number.isFinite(zoomLevel)
+    ? zoomLevel
+    : null;
+};
+
 export const useZoomControls = (
-  cosmographRef: React.RefObject<CosmographRef<GraphNode, GraphEdge> | null>
+  getCosmograph: () => CosmographInstance | null | undefined
 ) => {
   const store = useStore();
 
   const fitToScreen = useCallback(() => {
+    const graph = getCosmograph();
     const nodes = store.database?.graph.nodes;
-    if (!nodes) return;
+    if (!graph || !nodes?.length) return;
 
     if (nodes.length === 1) {
-      cosmographRef.current?.zoomToNode(nodes[0]);
-    } else {
-      cosmographRef.current?.unselectNodes();
-      cosmographRef.current?.fitView(ZOOM_DURATION);
+      graph.zoomToNode(nodes[0]);
+      return;
     }
-  }, [cosmographRef, store.database?.graph.nodes]);
+
+    graph.unselectNodes();
+    graph.fitView(ZOOM_DURATION);
+  }, [getCosmograph, store.database?.graph.nodes]);
 
   const zoomToNode = useCallback(
     (node: GraphNode | null | undefined) => {
-      if (node) {
-        cosmographRef.current?.selectNode(node, true);
-        cosmographRef.current?.zoomToNode(node);
+      const graph = getCosmograph();
+      if (node && graph) {
+        graph.selectNode(node, true);
+        graph.zoomToNode(node);
       } else {
         fitToScreen();
       }
     },
-    [cosmographRef, fitToScreen]
+    [getCosmograph, fitToScreen]
   );
 
   const zoomIn = useCallback(() => {
-    const zoomLevel = cosmographRef.current?.getZoomLevel();
-    if (!zoomLevel) return;
-    cosmographRef.current?.setZoomLevel(zoomLevel + 1, ZOOM_DURATION);
-  }, [cosmographRef]);
+    const graph = getCosmograph();
+    if (!graph) return;
+    const zoomLevel = resolveZoomLevel(graph) ?? 1;
+    graph.setZoomLevel(zoomLevel * ZOOM_FACTOR, ZOOM_DURATION);
+  }, [getCosmograph]);
 
   const zoomOut = useCallback(() => {
-    const zoomLevel = cosmographRef.current?.getZoomLevel();
-    if (!zoomLevel) return;
-    if (zoomLevel <= 1) {
-      cosmographRef.current?.setZoomLevel(SMALLEST_ZOOM_LEVEL, ZOOM_DURATION);
-    } else {
-      cosmographRef.current?.setZoomLevel(zoomLevel - 1, ZOOM_DURATION);
-    }
-  }, [cosmographRef]);
+    const graph = getCosmograph();
+    if (!graph) return;
+    const zoomLevel = resolveZoomLevel(graph) ?? 1;
+    graph.setZoomLevel(
+      Math.max(SMALLEST_ZOOM_LEVEL, zoomLevel / ZOOM_FACTOR),
+      ZOOM_DURATION
+    );
+  }, [getCosmograph]);
 
   return { fitToScreen, zoomToNode, zoomIn, zoomOut };
 };

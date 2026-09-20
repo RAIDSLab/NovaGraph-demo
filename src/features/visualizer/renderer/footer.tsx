@@ -1,5 +1,5 @@
 import type { CosmographRef } from "@cosmograph/react";
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import {
   Pause,
   Play,
@@ -22,27 +22,27 @@ import {
 } from "~/components/ui/tooltip";
 
 export default function GraphRendererFooter({
-  cosmographRef,
+  getCosmograph,
   isSimulationPaused,
   setIsSimulationPaused,
   showDynamicLabels,
   setShowDynamicLabels,
 }: {
-  cosmographRef: RefObject<CosmographRef<GraphNode, GraphEdge> | null>;
+  getCosmograph: () => CosmographRef<GraphNode, GraphEdge> | null | undefined;
   isSimulationPaused: boolean;
   setIsSimulationPaused: Dispatch<SetStateAction<boolean>>;
   showDynamicLabels: boolean;
   setShowDynamicLabels: Dispatch<SetStateAction<boolean>>;
 }) {
-  const { fitToScreen, zoomIn, zoomOut } = useZoomControls(cosmographRef);
+  const { fitToScreen, zoomIn, zoomOut } = useZoomControls(getCosmograph);
 
   return (
     <div
       data-guide="canvas"
-      className="flex justify-between p-4 w-full absolute bottom-0 left-0"
+      className="pointer-events-none z-20 flex justify-between p-4 w-full absolute bottom-0 left-0"
     >
       {/* Left Side */}
-      <div>
+      <div className="pointer-events-auto">
         {/* Play/Pause Simulation */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -63,7 +63,7 @@ export default function GraphRendererFooter({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => cosmographRef.current?.create()}
+              onClick={() => getCosmograph()?.create()}
               title="Restart Simulation"
             >
               <RotateCcw />
@@ -87,7 +87,7 @@ export default function GraphRendererFooter({
         </Tooltip>
       </div>
       {/* Right Side */}
-      <div>
+      <div className="pointer-events-auto">
         {/* Zoom Out */}
         <Tooltip>
           <TooltipTrigger asChild>

@@ -124,6 +124,7 @@ ENV NODE_ENV=production
 # - KUZU_DB_PATH / VITE_KUZU_DB_PATH: optional database path for persistent mode
 # - VITE_BENCHMARK_TIMING: set at image build time for production (default: "false")
 # Note: VITE_ prefixed variables are for client-side access in Vite
-COPY --from=build /src/build ./build
+COPY scripts/spa-server.mjs ./scripts/spa-server.mjs
+COPY --from=build /src/build/client ./build/client
 EXPOSE 3000
 CMD ["npm", "run", "start"]

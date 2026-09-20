@@ -1,6 +1,7 @@
 import {
   Cosmograph,
   CosmographProvider,
+  useCosmograph,
   type CosmographRef,
 } from "@cosmograph/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -35,6 +36,17 @@ import { cn } from "~/lib/utils";
 import { MODE, type ColorMap, type SizeMap } from "~/igraph/types";
 
 const GraphRenderer = observer(({ className }: { className?: string }) => {
+  const { database } = useStore();
+  const { nodes, edges } = database.graph;
+
+  return (
+    <CosmographProvider key={database.name} nodes={nodes} links={edges}>
+      <GraphCanvas className={className} />
+    </CosmographProvider>
+  );
+});
+
+const GraphCanvas = observer(({ className }: { className?: string }) => {
   const {
     database,
     gravity,
@@ -95,6 +107,11 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
   const cosmographRef = useRef<CosmographRef<GraphNode, GraphEdge> | null>(
     null
   );
+  const { cosmograph } = useCosmograph<GraphNode, GraphEdge>() ?? {};
+  const getCosmograph = useCallback(
+    () => cosmograph ?? cosmographRef.current,
+    [cosmograph]
+  );
 
   const isLargeGraph = edges.length > largeGraphEdgeThreshold;
 
@@ -120,7 +137,7 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
       diffCategories,
     }
   );
-  const { zoomToNode } = useZoomControls(cosmographRef);
+  const { zoomToNode } = useZoomControls(getCosmograph);
 
   // Auto-start the simulation on data changes for small graphs; large graphs
   // start paused so the initial paint stays cheap. The user can still toggle
@@ -132,12 +149,13 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
 
   // Start/pause simulation based on isSimulationPaused state
   useEffect(() => {
+    const graph = getCosmograph();
     if (isSimulationPaused) {
-      cosmographRef.current?.pause();
+      graph?.pause();
     } else {
-      cosmographRef.current?.start();
+      graph?.start();
     }
-  }, [isSimulationPaused]);
+  }, [getCosmograph, isSimulationPaused]);
 
   // Auto-pause when the simulation has cooled down, unless the algorithm run
   // handshake has currently forced the pause state (managed elsewhere).
@@ -309,13 +327,12 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
   }, [nodes, nodesMap]);
 
   const unselectNode = (_: GraphNode | null | undefined) => {
-    cosmographRef.current?.unselectNodes();
+    getCosmograph()?.unselectNodes();
     setClickedNode(null);
   };
 
   return (
-    <CosmographProvider key={database.name} nodes={nodes} links={edges}>
-      <div className={cn("flex flex-col w-full h-full relative", className)}>
+    <div className={cn("flex flex-col w-full h-full relative", className)}>
         {/* Main Graph Visualizer */}
         <Cosmograph
           ref={cosmographRef}
@@ -353,7 +370,7 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
           backgroundColor="transparent"
           hoveredNodeLabelColor="white"
           nodeLabelColor="white"
-          className="bg-page flex-1"
+          className="bg-page relative z-0 flex-1"
         />
 
         {/* Node Attributes Form */}
@@ -384,14 +401,13 @@ const GraphRenderer = observer(({ className }: { className?: string }) => {
 
         {/* Footer */}
         <GraphRendererFooter
-          cosmographRef={cosmographRef}
+          getCosmograph={getCosmograph}
           isSimulationPaused={isSimulationPaused}
           setIsSimulationPaused={setIsSimulationPaused}
           showDynamicLabels={showDynamicLabels}
           setShowDynamicLabels={setShowDynamicLabels}
         />
       </div>
-    </CosmographProvider>
   );
 });
 

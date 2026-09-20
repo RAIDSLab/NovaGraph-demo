@@ -22,9 +22,9 @@ const GraphRendererHeader = observer(
     ];
 
     return (
-      <div className="flex justify-between items-start h-fit w-full absolute inset-0">
+      <div className="pointer-events-none z-10 flex justify-between items-start h-fit w-full absolute inset-0">
         {/* Import */}
-        <div className="ml-4 mt-4.5 max-w-7/12 flex-1 flex flex-wrap items-center gap-2">
+        <div className="pointer-events-auto ml-4 mt-4.5 max-w-7/12 flex-1 flex flex-wrap items-center gap-2">
           <ImportDropdown
             database={database}
             databases={databases}
@@ -38,7 +38,7 @@ const GraphRendererHeader = observer(
             nodeTablesMap={database.graph.nodeTablesMap}
           />
         </div>
-        <div className="lg:w-5/12 flex justify-end items-center mr-4 h-18">
+        <div className="pointer-events-auto lg:w-5/12 flex justify-end items-center mr-4 h-18">
           {/* Search */}
           {nodes.length > 0 && (
             <GraphRendererSearch
