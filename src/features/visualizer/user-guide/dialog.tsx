@@ -5,6 +5,7 @@ import { GUIDE_SECTIONS, type GuideSectionId } from "./content";
 import { useVisualizerUi } from "./ui-context";
 
 import { Button } from "~/components/ui/button";
+import { useTheme } from "~/hooks/use-theme";
 import {
   Command,
   CommandEmpty,
@@ -21,6 +22,10 @@ import {
   DialogTitle,
 } from "~/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+
+/** Native size of public/userGuide/*-{light,dark}.gif */
+const GUIDE_CLIP_WIDTH_PX = 1112;
+const GUIDE_CLIP_HEIGHT_PX = 720;
 
 const isTypingTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) return false;
@@ -40,6 +45,7 @@ export default function UserGuideDialog() {
     tourActive,
     reveal,
   } = useVisualizerUi();
+  const { theme } = useTheme();
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -78,7 +84,7 @@ export default function UserGuideDialog() {
 
   return (
     <Dialog open={guideOpen} onOpenChange={setGuideOpen}>
-      <DialogContent className="flex flex-col gap-2 max-h-[80vh] !max-w-[min(100%,calc(80vw))]">
+      <DialogContent className="flex flex-col gap-2 h-[min(80vh,calc(100vh-2rem))] max-h-[min(80vh,calc(100vh-2rem))] !w-fit !max-w-[min(calc(100%-2rem),80vw)] overflow-hidden !overflow-y-hidden">
         <DialogHeader>
           <DialogTitle>User Guide</DialogTitle>
           <DialogDescription>
@@ -87,7 +93,7 @@ export default function UserGuideDialog() {
         </DialogHeader>
 
         <Command
-          className="relative overflow-visible rounded-md border border-border"
+          className="relative overflow-visible rounded-md border border-border !h-auto shrink-0"
           shouldFilter={false}
         >
           <CommandInput
@@ -118,14 +124,14 @@ export default function UserGuideDialog() {
           onValueChange={(value) => setGuideSectionId(value as GuideSectionId)}
           className="flex-1 flex flex-col min-h-0"
         >
-          <div className="mt-2 flex flex-col gap-4 md:flex-row flex-1 min-h-0">
-            <TabsList className="flex justify-start max-w-full h-full overflow-x-visible">
+          <div className="mt-2 flex flex-col gap-4 md:flex-row flex-1 min-h-0 overflow-hidden items-start">
+            <TabsList className="flex justify-start items-start self-start h-auto max-w-full overflow-x-visible">
               <div className="flex-shrink-0 flex gap-2 md:flex-col md:flex-nowrap">
                 {GUIDE_SECTIONS.map((section) => (
                   <TabsTrigger
                     key={section.id}
                     value={section.id}
-                    className="px-4 py-2 truncate data-[state=active]:bg-neutral justify-start"
+                    className="px-4 py-2 truncate data-[state=active]:bg-neutral justify-start flex-none h-auto"
                   >
                     {section.title}
                   </TabsTrigger>
@@ -133,21 +139,40 @@ export default function UserGuideDialog() {
               </div>
             </TabsList>
 
-            <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+            <div className="flex h-full min-h-0 w-auto min-w-[min(28rem,100%)] flex-col overflow-hidden">
               {GUIDE_SECTIONS.map((section) => (
                 <TabsContent
                   key={section.id}
                   value={section.id}
-                  className="flex flex-col gap-4 data-[state=active]:flex"
+                  className="flex h-full min-h-0 w-auto flex-col gap-3 overflow-hidden data-[state=active]:flex"
                 >
-                  <h2 className="medium-title">{section.title}</h2>
-                  <ul className="space-y-2 text-sm text-typography-secondary leading-relaxed list-disc pl-5">
+                  <h2 className="medium-title w-0 min-w-full shrink-0">
+                    {section.title}
+                  </h2>
+                  {section.clip && guideSectionId === section.id ? (
+                    <div
+                      className="min-h-0 w-auto flex-1 self-start overflow-hidden rounded-md border border-border bg-page"
+                      style={{
+                        aspectRatio: `${GUIDE_CLIP_WIDTH_PX} / ${GUIDE_CLIP_HEIGHT_PX}`,
+                      }}
+                    >
+                      <img
+                        key={`${section.clip}-${theme}`}
+                        src={`/userGuide/${section.clip}-${theme}.gif`}
+                        alt=""
+                        width={GUIDE_CLIP_WIDTH_PX}
+                        height={GUIDE_CLIP_HEIGHT_PX}
+                        className="block size-full object-cover origin-bottom scale-[1.035] bg-page"
+                      />
+                    </div>
+                  ) : null}
+                  <ul className="w-0 min-w-full shrink-0 list-disc space-y-2 pl-5 text-sm leading-relaxed text-typography-secondary">
                     {section.body.map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
                   {section.cta ? (
-                    <div>
+                    <div className="w-0 min-w-full shrink-0">
                       <Button onClick={() => reveal(section.cta!.action)}>
                         {section.id === "start" ? <Compass /> : null}
                         {section.cta.label}

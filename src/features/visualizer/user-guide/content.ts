@@ -16,14 +16,14 @@ export type GuideSectionId =
   | "canvas"
   | "algorithms"
   | "query"
-  | "export"
-  | "settings";
+  | "export";
 
 export type GuideSection = {
   id: GuideSectionId;
   title: string;
   keywords: string[];
   body: string[];
+  clip?: "import" | "visualizer" | "algorithm_query" | "query" | "export";
   cta?: { label: string; action: GuideAction };
 };
 
@@ -61,6 +61,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       "Directed Graph controls whether edges have direction. Persistent workspaces survive a refresh on this device; in-memory graphs do not.",
     ],
     cta: { label: "Open Import", action: "open-import" },
+    clip: "import",
   },
   {
     id: "build",
@@ -76,13 +77,28 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   {
     id: "canvas",
     title: "Canvas",
-    keywords: ["zoom", "labels", "pause", "simulation", "search", "layout"],
+    keywords: [
+      "zoom",
+      "labels",
+      "pause",
+      "simulation",
+      "search",
+      "layout",
+      "gravity",
+      "node size",
+      "lod",
+      "performance",
+      "options",
+      "settings",
+    ],
     body: [
       "The canvas is a force-directed WebGL view. Pause, restart, fit, zoom, and toggle labels from the footer.",
       "Search in the top-right jumps to a node by its label.",
-      "Large graphs may load paused with labels off. Adjust that threshold in Graph Options.",
+      "Graph Options on the right controls layout gravity, node size, link visibility, and large-graph behavior. Large graphs may load paused with labels off.",
+      "These change how the canvas looks, not the stored graph. The panel starts closed; open it from the chevron on the right edge.",
     ],
-    cta: { label: "Got it", action: "close-guide" },
+    cta: { label: "Open Graph Options", action: "open-settings" },
+    clip: "visualizer",
   },
   {
     id: "algorithms",
@@ -103,6 +119,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       "Compare keeps recent runs so you can diff scores or partitions against a baseline.",
     ],
     cta: { label: "Open algorithm sidebar", action: "open-algorithms" },
+    clip: "algorithm_query",
   },
   {
     id: "query",
@@ -114,6 +131,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       "In-memory graphs still show Output after an algorithm run; they do not execute queries.",
     ],
     cta: { label: "Open Code/Output", action: "open-output" },
+    clip: "query",
   },
   {
     id: "export",
@@ -125,24 +143,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       "Open the bottom panel first if Output is collapsed.",
     ],
     cta: { label: "Open Code/Output", action: "open-output" },
-  },
-  {
-    id: "settings",
-    title: "Settings",
-    keywords: [
-      "gravity",
-      "node size",
-      "lod",
-      "labels",
-      "performance",
-      "options",
-    ],
-    body: [
-      "Graph Options on the right controls layout gravity, node size, link visibility, and large-graph behavior.",
-      "These change how the canvas looks, not the stored graph.",
-      "The panel starts closed; open it from the chevron on the right edge.",
-    ],
-    cta: { label: "Open Graph Options", action: "open-settings" },
+    clip: "export",
   },
 ];
 
