@@ -4,6 +4,7 @@ import { observer } from "mobx-react-lite";
 import { toast } from "sonner";
 
 import { useStore } from "../hooks/use-store";
+import { useVisualizerUi } from "../user-guide/ui-context";
 import type { ExecuteQueryResult } from "../types";
 import { convertQueryToVisualizationResult } from "../queries";
 import { useVisualizerUi } from "../user-guide/ui-context";
@@ -135,6 +136,7 @@ const CodeOutputDrawer = observer(({ className }: { className?: string }) => {
   return (
     <div
       ref={drawerRef}
+      data-guide="output"
       style={
         {
           "--drawer-height": `${drawerHeight}px`,

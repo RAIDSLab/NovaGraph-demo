@@ -58,6 +58,8 @@ export default function ImportDropdown({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const { importDialogOpen, setImportDialogOpen } = useVisualizerUi();
 
+  const { importDialogOpen, setImportDialogOpen } = useVisualizerUi();
+
   // States
   const [open, setOpen] = useState(false);
 
@@ -73,9 +75,15 @@ export default function ImportDropdown({
           <Button
             ref={buttonRef}
             variant="outline"
+<<<<<<< Updated upstream
             data-guide="import"
             className={cn("flex justify-between items-center", className)}
             title={`Database: ${database ? database.name : "Default"}`}
+=======
+            className={cn("flex justify-between items-center", className)}
+            title={`Database: ${database ? database.name : "Default"}`}
+            data-guide="import"
+>>>>>>> Stashed changes
           >
             <span className="truncate">
               Database: <b>{database ? database.name : "Default"}</b>
@@ -91,7 +99,10 @@ export default function ImportDropdown({
           <Suspense fallback={<ImportListFallback />}>
             <ImportListSelector
               setOpen={setOpen}
+<<<<<<< Updated upstream
               setImportDialogOpen={setImportDialogOpen}
+=======
+>>>>>>> Stashed changes
               database={database}
               databases={databases}
               onSelectDatabase={onSelectDatabase}
@@ -100,11 +111,15 @@ export default function ImportDropdown({
           </Suspense>
         </PopoverContent>
       </Popover>
+<<<<<<< Updated upstream
       <Dialog
         open={importDialogOpen}
         onOpenChange={setImportDialogOpen}
         modal={true}
       >
+=======
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+>>>>>>> Stashed changes
         <ImportDialog
           onClose={() => {
             setImportDialogOpen(false);
@@ -131,12 +146,12 @@ function ImportListSelector({
   onSelectDatabase: (name: string) => Promise<void>;
   onDeleteDatabase: (name: string) => Promise<void>;
 }) {
+  const { setImportDialogOpen } = useVisualizerUi();
   const [selectingName, setSelectingName] = useState<string | null>(null);
   const [alertDialogOpen, setAlertDialogOpen] = useState<string | null>(null);
 
-  const { run: selectDatabase, isLoading: isSelecting } = useAsyncFn(
-    onSelectDatabase
-  );
+  const { run: selectDatabase, isLoading: isSelecting } =
+    useAsyncFn(onSelectDatabase);
 
   const { run: deleteDatabase, isLoading: isDeleting } = useAsyncFn(
     onDeleteDatabase,
@@ -164,7 +179,9 @@ function ImportListSelector({
       await selectDatabase(name);
       toast.success(`Successfully connected to database "${name}"`);
     } catch (error) {
-      toast.error(`Failed to connect to database "${name}". Please try again later`);
+      toast.error(
+        `Failed to connect to database "${name}". Please try again later`
+      );
     } finally {
       setSelectingName(null);
     }
@@ -175,6 +192,7 @@ function ImportListSelector({
   };
 
   return (
+<<<<<<< Updated upstream
     <>
       <Command value={database?.name}>
         <CommandInput placeholder="Filter database..." />
@@ -192,84 +210,109 @@ function ImportListSelector({
                   <div
                     title={entry}
                     className="flex-1 flex items-center gap-1 truncate"
+=======
+    <Command value={database?.name}>
+      <CommandInput placeholder="Filter database..." />
+      <CommandList>
+        <CommandEmpty>No results found.</CommandEmpty>
+        <CommandGroup heading="Existing Databases">
+          {databases.map((entry) => (
+            <CommandItem
+              key={entry}
+              value={entry}
+              onSelect={() => handleSelect(entry)}
+              className="block px-3"
+            >
+              <div className="flex items-center justify-between gap-2 h-8">
+                <div
+                  title={entry}
+                  className="flex-1 flex items-center gap-1 truncate"
+                >
+                  {isSelecting && selectingName === entry && (
+                    <Loader className="w-4 h-4 animate-spin" />
+                  )}
+                  <span className="truncate">{entry}</span>
+                </div>
+                {database.name === entry ? (
+                  <span className="px-2 py-1 text-xs text-typography-secondary border border-neutral rounded-full">
+                    Active
+                  </span>
+                ) : (
+                  <AlertDialog
+                    key={entry}
+                    open={alertDialogOpen === entry}
+                    onOpenChange={(open) =>
+                      setAlertDialogOpen(open ? entry : null)
+                    }
+                    aria-hidden="false"
+>>>>>>> Stashed changes
                   >
-                    {isSelecting && selectingName === entry && (
-                      <Loader className="w-4 h-4 animate-spin" />
-                    )}
-                    <span className="truncate">{entry}</span>
-                  </div>
-                  {database.name === entry ? (
-                    <span className="px-2 py-1 text-xs text-typography-secondary border border-neutral rounded-full">
-                      Active
-                    </span>
-                  ) : (
-                    <AlertDialog
-                      key={entry}
-                      open={alertDialogOpen === entry}
-                      onOpenChange={(open) =>
-                        setAlertDialogOpen(open ? entry : null)
-                      }
-                      aria-hidden="false"
-                    >
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAlertDialogOpen(entry);
+                        }}
+                        onKeyDownCapture={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
                             e.stopPropagation();
                             setAlertDialogOpen(entry);
+                          }
+                        }}
+                      >
+                        <Trash className="size-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                      onOverlayClick={(e) => {
+                        e.stopPropagation();
+                        setAlertDialogOpen(null);
+                      }}
+                    >
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          Delete database "{entry}"?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently remove the selected database and
+                          all of its contents. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAlertDialogOpen(null);
                           }}
                           onKeyDownCapture={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault();
                               e.stopPropagation();
-                              setAlertDialogOpen(entry);
+                              setAlertDialogOpen(null);
                             }
                           }}
                         >
-                          <Trash className="size-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
-                        onOverlayClick={(e) => {
-                          e.stopPropagation();
-                          setAlertDialogOpen(null);
-                        }}
-                      >
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Delete database "{entry}"?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently remove the selected database
-                            and all of its contents. This action cannot be
-                            undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setAlertDialogOpen(null);
-                            }}
-                            onKeyDownCapture={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setAlertDialogOpen(null);
-                              }
-                            }}
-                          >
-                            Cancel
-                          </AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={(e) => {
+                          Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(entry);
+                            setAlertDialogOpen(null);
+                          }}
+                          onKeyDownCapture={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
                               e.stopPropagation();
                               handleDelete(entry);
                               setAlertDialogOpen(null);
+<<<<<<< Updated upstream
                             }}
                             onKeyDownCapture={(e) => {
                               if (e.key === "Enter" || e.key === " ") {
@@ -308,6 +351,38 @@ function ImportListSelector({
         </CommandList>
       </Command>
     </>
+=======
+                            }
+                          }}
+                        >
+                          {isDeleting ? (
+                            <Loader className="animate-spin" />
+                          ) : (
+                            "Delete"
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+        <CommandGroup heading="Create Graph">
+          <CommandItem
+            onSelect={() => {
+              setOpen(false);
+              setImportDialogOpen(true);
+            }}
+          >
+            <Plus />
+            Create Graph
+          </CommandItem>
+        </CommandGroup>
+      </CommandList>
+    </Command>
+>>>>>>> Stashed changes
   );
 }
 
