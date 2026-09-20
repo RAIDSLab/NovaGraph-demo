@@ -103,15 +103,21 @@ const GraphCanvas = observer(({ className }: { className?: string }) => {
     return result;
   }, [activeResponse, layerSlice]);
 
-  // Refs
+  // Cosmograph's ref only updates on first mount, and context can briefly hold a
+  // wrapper whose inner cosmos Graph has not been created (or was destroy()'d).
   const cosmographRef = useRef<CosmographRef<GraphNode, GraphEdge> | null>(
     null
   );
+  const liveGraphRef = useRef<CosmographRef<GraphNode, GraphEdge> | null>(null);
   const { cosmograph } = useCosmograph<GraphNode, GraphEdge>() ?? {};
-  const getCosmograph = useCallback(
-    () => cosmograph ?? cosmographRef.current,
-    [cosmograph]
-  );
+  if (cosmograph) liveGraphRef.current = cosmograph;
+  const getCosmograph = useCallback(() => {
+    const fromContext = cosmograph ?? liveGraphRef.current;
+    const fromRef = cosmographRef.current;
+    if (fromContext?.cosmos) return fromContext;
+    if (fromRef?.cosmos) return fromRef;
+    return fromContext ?? fromRef ?? null;
+  }, [cosmograph]);
 
   const isLargeGraph = edges.length > largeGraphEdgeThreshold;
 
@@ -332,10 +338,15 @@ const GraphCanvas = observer(({ className }: { className?: string }) => {
   };
 
   return (
-    <div className={cn("flex flex-col w-full h-full relative", className)}>
+    <div
+      data-guide="canvas"
+      className={cn("flex flex-col w-full h-full relative", className)}
+    >
         {/* Main Graph Visualizer */}
         <Cosmograph
           ref={cosmographRef}
+          nodes={nodes}
+          links={edges}
           onClick={selectNode}
           initialZoomLevel={RENDER_DEFAULTS.INITIAL_ZOOM_LEVEL}
           pixelRatio={pixelRatio}

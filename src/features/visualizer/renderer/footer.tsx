@@ -1,5 +1,10 @@
-import type { CosmographRef } from "@cosmograph/react";
-import type { Dispatch, SetStateAction } from "react";
+import { useCosmograph, type CosmographRef } from "@cosmograph/react";
+import {
+  useCallback,
+  type Dispatch,
+  type PointerEvent,
+  type SetStateAction,
+} from "react";
 import {
   Pause,
   Play,
@@ -21,6 +26,13 @@ import {
   TooltipTrigger,
 } from "~/components/ui/tooltip";
 
+const activate = (event: PointerEvent<HTMLButtonElement>, action: () => void) => {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  event.stopPropagation();
+  action();
+};
+
 export default function GraphRendererFooter({
   getCosmograph,
   isSimulationPaused,
@@ -34,22 +46,31 @@ export default function GraphRendererFooter({
   showDynamicLabels: boolean;
   setShowDynamicLabels: Dispatch<SetStateAction<boolean>>;
 }) {
-  const { fitToScreen, zoomIn, zoomOut } = useZoomControls(getCosmograph);
+  const { cosmograph } = useCosmograph<GraphNode, GraphEdge>() ?? {};
+  const resolveGraph = useCallback(
+    () => cosmograph ?? getCosmograph(),
+    [cosmograph, getCosmograph]
+  );
+  const { fitToScreen, zoomIn, zoomOut } = useZoomControls(resolveGraph);
 
   return (
     <div
-      data-guide="canvas"
-      className="pointer-events-none z-20 flex justify-between p-4 w-full absolute bottom-0 left-0"
+      data-zoom-bar="v2"
+      className="pointer-events-none z-30 flex justify-between p-4 w-full absolute bottom-0 left-0"
     >
       {/* Left Side */}
       <div className="pointer-events-auto">
-        {/* Play/Pause Simulation */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
+              type="button"
               variant="ghost"
               size="icon"
-              onClick={() => setIsSimulationPaused((prev) => !prev)}
+              onPointerDown={(event) =>
+                activate(event, () =>
+                  setIsSimulationPaused((prev) => !prev)
+                )
+              }
               title="Play/Pause Simulation"
             >
               {isSimulationPaused ? <Play /> : <Pause />}
@@ -57,13 +78,15 @@ export default function GraphRendererFooter({
           </TooltipTrigger>
           <TooltipContent>Play/Pause Simulation</TooltipContent>
         </Tooltip>
-        {/* Restart Simulation */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
+              type="button"
               variant="ghost"
               size="icon"
-              onClick={() => getCosmograph()?.create()}
+              onPointerDown={(event) =>
+                activate(event, () => getCosmograph()?.create())
+              }
               title="Restart Simulation"
             >
               <RotateCcw />
@@ -71,13 +94,13 @@ export default function GraphRendererFooter({
           </TooltipTrigger>
           <TooltipContent>Restart Simulation</TooltipContent>
         </Tooltip>
-        {/* Fit All Nodes */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
+              type="button"
               variant="ghost"
               size="icon"
-              onClick={() => fitToScreen()}
+              onPointerDown={(event) => activate(event, fitToScreen)}
               title="Fit All Nodes To Screen"
             >
               <Shrink />
@@ -88,13 +111,13 @@ export default function GraphRendererFooter({
       </div>
       {/* Right Side */}
       <div className="pointer-events-auto">
-        {/* Zoom Out */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
+              type="button"
               variant="ghost"
               size="icon"
-              onClick={() => zoomOut()}
+              onPointerDown={(event) => activate(event, zoomOut)}
               title="Zoom Out"
             >
               <ZoomOut />
@@ -102,13 +125,13 @@ export default function GraphRendererFooter({
           </TooltipTrigger>
           <TooltipContent>Zoom Out</TooltipContent>
         </Tooltip>
-        {/* Zoom In */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
+              type="button"
               variant="ghost"
               size="icon"
-              onClick={() => zoomIn()}
+              onPointerDown={(event) => activate(event, zoomIn)}
               title="Zoom In"
             >
               <ZoomIn />
@@ -116,13 +139,15 @@ export default function GraphRendererFooter({
           </TooltipTrigger>
           <TooltipContent>Zoom In</TooltipContent>
         </Tooltip>
-        {/* Dynamic Labels Toggle */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
+              type="button"
               variant="ghost"
               size="icon"
-              onClick={() => setShowDynamicLabels((prev) => !prev)}
+              onPointerDown={(event) =>
+                activate(event, () => setShowDynamicLabels((prev) => !prev))
+              }
               title="Show/Hide Node Labels"
             >
               <Tag

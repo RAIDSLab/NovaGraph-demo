@@ -292,7 +292,7 @@ export default function ProductTour() {
   return (
     <div
       className={cn(
-        "fixed inset-0 z-40 overflow-hidden transition-opacity",
+        "pointer-events-none fixed inset-0 z-40 overflow-hidden transition-opacity",
         shown ? "opacity-100" : "opacity-0"
       )}
       style={{
@@ -319,7 +319,7 @@ export default function ProductTour() {
       {hole && tooltip ? (
         <Card
           ref={cardRef}
-          className="absolute z-50 top-0 left-0 shadow-lg"
+          className="pointer-events-auto absolute z-50 top-0 left-0 shadow-lg"
           style={{
             width: TOOLTIP_WIDTH,
             transform: `translate3d(${tooltip.left}px, ${tooltip.top}px, 0)`,

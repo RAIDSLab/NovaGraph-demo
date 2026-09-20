@@ -22,7 +22,7 @@ const GraphRendererHeader = observer(
     ];
 
     return (
-      <div className="pointer-events-none z-10 flex justify-between items-start h-fit w-full absolute inset-0">
+      <div className="pointer-events-none z-10 flex justify-between items-start h-fit w-full absolute top-0 left-0 right-0">
         {/* Import */}
         <div className="pointer-events-auto ml-4 mt-4.5 max-w-7/12 flex-1 flex flex-wrap items-center gap-2">
           <ImportDropdown
