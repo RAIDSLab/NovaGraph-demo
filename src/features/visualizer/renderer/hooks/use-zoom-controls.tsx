@@ -6,8 +6,17 @@ import { useStore } from "../../hooks/use-store";
 
 const ZOOM_FACTOR = 1.5;
 const SMALLEST_ZOOM_LEVEL = 0.1;
+const ZOOM_DURATION_MS = 320;
+const FIT_DURATION_MS = 420;
 
 type CosmographInstance = CosmographRef<GraphNode, GraphEdge>;
+
+type ZoomTransform = {
+  k: number;
+  x: number;
+  y: number;
+  interpolate?: (other: ZoomTransform) => (t: number) => ZoomTransform;
+};
 
 type CosmosZoom = {
   getZoomLevel: () => number;
@@ -15,16 +24,34 @@ type CosmosZoom = {
   fitView: (duration?: number, padding?: number) => void;
   getNodePositionsArray: () => ([number, number] | undefined)[];
   zoomInstance: {
+    eventTransform?: ZoomTransform;
     getTransform: (
       positions: [number, number][],
       scale?: number,
       padding?: number
-    ) => unknown;
+    ) => ZoomTransform;
     behavior: { scaleBy: unknown; transform: unknown };
   };
   canvasD3Selection: {
     call: (behavior: unknown, value: unknown) => void;
+    node?: () => Node | null;
   };
+};
+
+let zoomAnimId = 0;
+
+const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
+
+const runZoomAnimation = (duration: number, apply: (eased: number) => void) => {
+  const id = ++zoomAnimId;
+  const startedAt = performance.now();
+  const step = (now: number) => {
+    if (id !== zoomAnimId) return;
+    const t = Math.min(1, (now - startedAt) / duration);
+    apply(easeOutCubic(t));
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 };
 
 const asCosmos = (
@@ -33,9 +60,8 @@ const asCosmos = (
   const cosmos = graph?.cosmos as CosmosZoom | undefined;
   if (!cosmos?.canvasD3Selection || !cosmos.zoomInstance?.behavior) return null;
   const node =
-    typeof (cosmos.canvasD3Selection as { node?: () => Node | null }).node ===
-    "function"
-      ? (cosmos.canvasD3Selection as { node: () => Node | null }).node()
+    typeof cosmos.canvasD3Selection.node === "function"
+      ? cosmos.canvasD3Selection.node()
       : null;
   if (node instanceof HTMLCanvasElement && !node.isConnected) return null;
   return cosmos;
@@ -80,64 +106,67 @@ const getGraphFromCanvas = (canvas: HTMLCanvasElement) => {
   return hostFiber?.return?.memoizedState?.next?.memoizedState?.current ?? null;
 };
 
-const zoomCanvasByWheel = (direction: "in" | "out") => {
-  const canvas = getVisualizerCanvas();
-  if (!canvas) return false;
-  const rect = canvas.getBoundingClientRect();
-  canvas.dispatchEvent(
-    new WheelEvent("wheel", {
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-      view: window,
-      clientX: rect.left + rect.width / 2,
-      clientY: rect.top + rect.height / 2,
-      deltaY: direction === "in" ? -140 : 140,
-      deltaMode: 0,
-    })
+const applyTransform = (cosmos: CosmosZoom, transform: ZoomTransform) => {
+  cosmos.canvasD3Selection.call(
+    cosmos.zoomInstance.behavior.transform,
+    transform
   );
-  return true;
 };
 
-const scaleBy = (graph: CosmographInstance | null, factor: number) => {
+const animateScaleTo = (graph: CosmographInstance, targetK: number) => {
   const cosmos = asCosmos(graph);
-  if (cosmos) {
-    cosmos.canvasD3Selection.call(
-      cosmos.zoomInstance.behavior.scaleBy,
-      factor
-    );
-    return true;
-  }
-  if (graph) {
-    const current = graph.getZoomLevel();
-    const zoomLevel =
-      typeof current === "number" && Number.isFinite(current) && current > 0
-        ? current
-        : 1;
-    graph.setZoomLevel(zoomLevel * factor, 0);
-    return true;
-  }
-  return false;
+  const from = Math.max(
+    SMALLEST_ZOOM_LEVEL,
+    cosmos?.getZoomLevel() ?? graph.getZoomLevel() ?? 1
+  );
+  const to = Math.max(SMALLEST_ZOOM_LEVEL, targetK);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from === to) return;
+
+  runZoomAnimation(ZOOM_DURATION_MS, (eased) => {
+    const next = from + (to - from) * eased;
+    if (cosmos) cosmos.setZoomLevel(next, 0);
+    else graph.setZoomLevel(next, 0);
+  });
 };
 
-const fitInstantly = (graph: CosmographInstance) => {
+const animateFit = (graph: CosmographInstance) => {
   const cosmos = asCosmos(graph);
-  if (cosmos) {
-    const positions = finitePositions(cosmos.getNodePositionsArray());
-    if (positions.length > 0) {
-      const transform = cosmos.zoomInstance.getTransform(
-        positions,
-        undefined,
-        0.1
-      );
-      cosmos.canvasD3Selection.call(
-        cosmos.zoomInstance.behavior.transform,
-        transform
-      );
-      return;
-    }
+  if (!cosmos) {
+    graph.fitView(FIT_DURATION_MS);
+    return;
   }
-  graph.fitView(0);
+
+  const positions = finitePositions(cosmos.getNodePositionsArray());
+  if (positions.length === 0) {
+    graph.fitView(FIT_DURATION_MS);
+    return;
+  }
+
+  const from = cosmos.zoomInstance.eventTransform ?? {
+    k: cosmos.getZoomLevel() || 1,
+    x: 0,
+    y: 0,
+  };
+  const to = cosmos.zoomInstance.getTransform(positions, undefined, 0.1);
+  const interpolate = from.interpolate?.bind(from);
+
+  if (interpolate) {
+    const interp = interpolate(to);
+    runZoomAnimation(FIT_DURATION_MS, (eased) => {
+      applyTransform(cosmos, interp(eased));
+    });
+    return;
+  }
+
+  runZoomAnimation(FIT_DURATION_MS, (eased) => {
+    const current = Object.create(
+      Object.getPrototypeOf(to)
+    ) as ZoomTransform;
+    current.k = from.k + (to.k - from.k) * eased;
+    current.x = from.x + (to.x - from.x) * eased;
+    current.y = from.y + (to.y - from.y) * eased;
+    applyTransform(cosmos, current);
+  });
 };
 
 const resolveGraph = (
@@ -165,7 +194,7 @@ export const useZoomControls = (
       return;
     }
 
-    fitInstantly(graph);
+    animateFit(graph);
   }, [getCosmograph, store.database?.graph.nodes]);
 
   const zoomToNode = useCallback(
@@ -183,24 +212,24 @@ export const useZoomControls = (
 
   const zoomIn = useCallback(() => {
     const graph = resolveGraph(getCosmograph);
-    scaleBy(graph, ZOOM_FACTOR);
-    zoomCanvasByWheel("in");
+    if (!graph) return;
+    const current = asCosmos(graph)?.getZoomLevel() ?? graph.getZoomLevel() ?? 1;
+    const from =
+      typeof current === "number" && Number.isFinite(current) && current > 0
+        ? current
+        : 1;
+    animateScaleTo(graph, from * ZOOM_FACTOR);
   }, [getCosmograph]);
 
   const zoomOut = useCallback(() => {
     const graph = resolveGraph(getCosmograph);
-    const cosmos = asCosmos(graph);
-    const current = cosmos?.getZoomLevel() ?? graph?.getZoomLevel();
-    const zoomLevel =
+    if (!graph) return;
+    const current = asCosmos(graph)?.getZoomLevel() ?? graph.getZoomLevel() ?? 1;
+    const from =
       typeof current === "number" && Number.isFinite(current) && current > 0
         ? current
         : 1;
-    const nextFactor = Math.max(
-      SMALLEST_ZOOM_LEVEL / zoomLevel,
-      1 / ZOOM_FACTOR
-    );
-    scaleBy(graph, nextFactor);
-    zoomCanvasByWheel("out");
+    animateScaleTo(graph, Math.max(SMALLEST_ZOOM_LEVEL, from / ZOOM_FACTOR));
   }, [getCosmograph]);
 
   return { fitToScreen, zoomToNode, zoomIn, zoomOut };
